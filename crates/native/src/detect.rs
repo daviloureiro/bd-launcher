@@ -402,7 +402,7 @@ pub mod linux {
         }
         let order = [InstallSource::Deb, InstallSource::Rpm, InstallSource::Pacman, InstallSource::Flatpak];
         if let Some(p) = packages::find(app, &snapshot.packages, &order) {
-            let location = if p.manager == InstallSource::Flatpak { app.bundle_id() } else { binary_on_path(app.id) };
+            let location = if p.manager == InstallSource::Flatpak { app.bundle_id() } else { binary_on_path(&app.id) };
             return Some(Installed { version: packages::version_of(p), source: p.manager, location, package: Some(p.name.clone()) });
         }
         detect_system_install(app)
@@ -413,7 +413,7 @@ pub mod linux {
     /// reported as a system binary: the launcher can open it but leaves updating and removing it
     /// to whatever installed it, since it can't tell which package manager that was.
     fn detect_system_install(app: &App) -> Option<Installed> {
-        let bin = find_binary(app.id)?;
+        let bin = find_binary(&app.id)?;
         Some(Installed { version: binary_version(&bin, app), source: InstallSource::Binary, location: bin.display().to_string(), package: None })
     }
 
@@ -437,7 +437,7 @@ pub mod freebsd {
     use super::*;
 
     pub fn detect(app: &App) -> Option<Installed> {
-        let bin = Path::new("/usr/local/bin").join(app.id);
+        let bin = Path::new("/usr/local/bin").join(&app.id);
         if !bin.exists() {
             return None;
         }
@@ -457,8 +457,9 @@ mod linux_tests {
 
     #[test]
     fn ours_filter_matches_rpm_packages() {
+        let suite = bd_launcher_core::catalog::fixtures();
         let ours = |name: &str| {
-            bd_launcher_core::SUITE.iter().any(|a| {
+            suite.apps.iter().any(|a| {
                 [InstallSource::Deb, InstallSource::Rpm, InstallSource::Pacman, InstallSource::Flatpak]
                     .iter()
                     .any(|m| crate::packages::candidate_names(a, *m).iter().any(|n| n == name))

@@ -517,7 +517,7 @@ pub fn launch(app: &App, installed: &Installed, paths: &Paths) -> Result<(), Str
         // launcher's or the host's home folder.
         #[cfg(target_os = "linux")]
         InstallSource::Launcher if path.starts_with(paths.apps()) => {
-            let home = paths.app_home(app.id);
+            let home = paths.app_home(&app.id);
             prepare_home(&home);
             let mut cmd = process::command(path);
             for (name, value) in home_env(&home) {
@@ -876,17 +876,17 @@ pub(crate) mod linux {
     pub fn remove_package(app: &App, installed: &Installed, stop: &Stop, phase: &mut dyn FnMut(JobPhase)) -> Result<(), String> {
         let mut remove = |command: &[&str], package: &str| as_root(&SYSTEM, command, OsStr::new(package), stop, phase, JobPhase::Removing);
         match installed.source {
-            InstallSource::Deb if which("apt-get").is_some() => remove(&["apt-get", "-o", APT_WAITS, "remove", "-y"], app.id),
-            InstallSource::Deb => remove(&["dpkg", "-r"], app.id),
+            InstallSource::Deb if which("apt-get").is_some() => remove(&["apt-get", "-o", APT_WAITS, "remove", "-y"], &app.id),
+            InstallSource::Deb => remove(&["dpkg", "-r"], &app.id),
             InstallSource::Rpm => {
                 if which("dnf").is_some() {
-                    remove(&["dnf", "remove", "-y"], app.id)
+                    remove(&["dnf", "remove", "-y"], &app.id)
                 } else {
-                    remove(&["rpm", "-e"], app.id)
+                    remove(&["rpm", "-e"], &app.id)
                 }
             }
             // The package detected (photocraft, photocraft-bin or photocraft-git).
-            InstallSource::Pacman => remove(&["pacman", "-R", "--noconfirm"], installed.package.as_deref().unwrap_or(app.id)),
+            InstallSource::Pacman => remove(&["pacman", "-R", "--noconfirm"], installed.package.as_deref().unwrap_or(&app.id)),
             InstallSource::Flatpak => {
                 let id = app.bundle_id();
                 let user = process::flatpak_command().args(["uninstall", "--user", "-y", "--noninteractive", &id]).status();
@@ -954,14 +954,14 @@ pub(crate) mod linux {
 
     fn unpack_tree(app: &App, file: &Path, staged: &Path, paths: &Paths) -> Result<PathBuf, String> {
         let tree = tree::unpack(app, file, staged)?;
-        let root = paths.apps().join(app.id);
+        let root = paths.apps().join(&app.id);
         std::fs::create_dir_all(&root).map_err(|e| format!("couldn't create {} ({e})", root.display()))?;
         for dir in ["bin", "share"] {
             if tree.join(dir).is_dir() {
                 swap_into_place(&tree.join(dir), &root.join(dir))?;
             }
         }
-        let bin = root.join("bin").join(app.id);
+        let bin = root.join("bin").join(&app.id);
         std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755))
             .map_err(|e| format!("couldn't make {} runnable ({e})", bin.display()))?;
         Ok(bin)
@@ -971,7 +971,7 @@ pub(crate) mod linux {
     /// settings and projects in it are the user's, not the installer's. Only the two folders the
     /// launcher put there are removed, and only inside the launcher's own apps folder.
     pub fn remove_tree(app: &App, paths: &Paths) -> Result<(), String> {
-        let root = paths.apps().join(app.id);
+        let root = paths.apps().join(&app.id);
         let mut removed = false;
         for dir in ["bin", "share"] {
             let path = root.join(dir);
@@ -997,7 +997,7 @@ pub(crate) mod linux {
 
     /// The app's icon, as the launcher downloaded it from the catalog. `None` when it hasn't
     /// been fetched yet: the menu entry is then written without one.
-    fn icon_png(paths: &crate::paths::Paths, app: &App) -> Option<std::path::PathBuf> {
+    pub(crate) fn icon_png(paths: &crate::paths::Paths, app: &App) -> Option<std::path::PathBuf> {
         let icon = paths.icon(&app.id);
         icon.is_file().then_some(icon)
     }
@@ -1043,16 +1043,19 @@ pub(crate) mod linux {
             return written;
         }
         let has_icon = match icon_png {
-            Some(png) if !icon.exists() || ours_before(&icon) => match crate::paths::write_atomic(&icon, png) {
-                Ok(()) => {
-                    written.push(icon.clone());
-                    true
+            Some(png) if !icon.exists() || ours_before(&icon) => {
+                let copied = std::fs::read(png).map_err(|e| e.to_string()).and_then(|bytes| crate::paths::write_atomic(&icon, &bytes));
+                match copied {
+                    Ok(()) => {
+                        written.push(icon.clone());
+                        true
+                    }
+                    Err(e) => {
+                        log::warn!("{}: couldn't install the menu icon: {e}", app.name);
+                        false
+                    }
                 }
-                Err(e) => {
-                    log::warn!("{}: couldn't install the menu icon: {e}", app.name);
-                    false
-                }
-            },
+            }
             // Someone else's icon under the app's id (the app's own AppImage puts one there).
             _ => icon.is_file(),
         };
@@ -1382,7 +1385,7 @@ mod tree {
             return Err("the download is empty".into());
         }
         let top = single_top_folder(staging)?;
-        if top.join("bin").join(app.id).is_file() {
+        if top.join("bin").join(&app.id).is_file() {
             check_tree(&top)?;
             return Ok(top);
         }
@@ -1390,7 +1393,7 @@ mod tree {
         let tree = staging.join("tree");
         let id = app.bundle_id();
         for (from, to) in [
-            (top.join(app.id), tree.join("bin").join(app.id)),
+            (top.join(&app.id), tree.join("bin").join(&app.id)),
             (top.join(format!("{}-cli", app.id)), tree.join("bin").join(format!("{}-cli", app.id))),
             (top.join(format!("{id}.desktop")), tree.join("share/applications").join(format!("{id}.desktop"))),
             (top.join(format!("{id}.png")), tree.join("share/pixmaps").join(format!("{id}.png"))),
@@ -1402,7 +1405,7 @@ mod tree {
                 std::fs::rename(&from, &to).map_err(|e| e.to_string())?;
             }
         }
-        if !tree.join("bin").join(app.id).is_file() {
+        if !tree.join("bin").join(&app.id).is_file() {
             return Err("the download doesn't contain the app".into());
         }
         check_tree(&tree)?;
@@ -1480,19 +1483,19 @@ mod freebsd {
         if which("pkexec").is_some() {
             let prefix = PathBuf::from("/usr/local");
             copy_tree_as_root(&tree, &rel, &prefix)?;
-            return Ok((prefix.join("bin").join(app.id), rel.iter().map(|r| prefix.join(r)).collect(), true));
+            return Ok((prefix.join("bin").join(&app.id), rel.iter().map(|r| prefix.join(r)).collect(), true));
         }
         let prefix = dirs::home_dir().ok_or("no home folder")?.join(".local");
         copy_tree_local(&tree, &rel, &prefix)?;
         // ~/.local/bin is often not on PATH for the desktop: point the menu entry at the binary.
-        let bin = prefix.join("bin").join(app.id);
+        let bin = prefix.join("bin").join(&app.id);
         let desktop = prefix.join("share/applications").join(format!("{}.desktop", app.bundle_id()));
         if let Ok(text) = std::fs::read_to_string(&desktop) {
             let exec = format!("Exec=\"{}\"", bin.display());
             let fixed: String = text
                 .lines()
                 .map(|l| {
-                    if let Some(rest) = l.strip_prefix("Exec=").and_then(|r| r.strip_prefix(app.id))
+                    if let Some(rest) = l.strip_prefix("Exec=").and_then(|r| r.strip_prefix(app.id.as_str()))
                         && (rest.is_empty() || rest.starts_with([' ', '\t']))
                     {
                         format!("{exec}{rest}\n")
@@ -2178,9 +2181,20 @@ mod tests {
         }
         assert!(tree::unpack(app, &link, &dir.path().join("staging")).is_err());
         assert!(!dir.path().join("staging/x/bin/wordcraft").exists());
-        // An absolute path is refused.
+        // An absolute path is refused (built field by field: the builder itself won't
+        // store one from a plain entry).
         let abs = dir.path().join("abs.tar.gz");
-        tarball(&abs, &["/bin/wordcraft"]);
+        {
+            let f = std::fs::File::create(&abs).unwrap();
+            let mut b = tar::Builder::new(flate2::write::GzEncoder::new(f, flate2::Compression::fast()));
+            let mut h = tar::Header::new_gnu();
+            h.set_size(2);
+            h.set_mode(0o755);
+            h.set_path_absolute("/bin/wordcraft").unwrap();
+            h.set_cksum();
+            b.append(&h, &b"hi"[..]).unwrap();
+            b.into_inner().unwrap().finish().unwrap();
+        }
         assert!(tree::unpack(app, &abs, &dir.path().join("staging")).is_err());
         // A tree carrying `etc/` is refused, so a root copy could never reach /usr/local/etc.
         let etc = dir.path().join("etc.tar.gz");
@@ -2220,7 +2234,7 @@ mod tests {
         assert!(!paths.cache.join("wordcraft.new").exists(), "the staging folder was left behind");
 
         // The app's own home sits beside the tree, and an update keeps it.
-        let home = paths.app_home(app.id);
+        let home = paths.app_home(&app.id);
         std::fs::create_dir_all(home.join(".config/wordcraft")).unwrap();
         std::fs::write(home.join(".config/wordcraft/settings.toml"), "keep me").unwrap();
         linux::install_tree(app, &file, &paths).unwrap();
@@ -2361,9 +2375,12 @@ mod tests {
         let new = root.path().join("My Apps/wordcraft-0.3.0-linux-x86_64.AppImage");
         std::fs::create_dir_all(new.parent().unwrap()).unwrap();
         std::fs::write(&new, b"").unwrap();
+        // The icon, as the launcher downloaded it from the catalog.
+        let downloaded = root.path().join("wordcraft.png");
+        std::fs::write(&downloaded, b"\x89PNG\r\n\x1a\nicon").unwrap();
 
         // Fresh install: entry and icon written and recorded.
-        let files = linux::integrate_into(&data, app, &new, &[], None, None);
+        let files = linux::integrate_into(&data, app, &new, &[], None, Some(&downloaded));
         assert_eq!(files, [icon.clone(), desktop.clone()]);
         let text = std::fs::read_to_string(&desktop).unwrap();
         assert!(text.contains("Exec=\"") && text.contains("My Apps/wordcraft-0.3.0-linux-x86_64.AppImage\" %F\n"), "{text}");
@@ -2372,7 +2389,7 @@ mod tests {
         let rec = record("0.3.0", PackageKind::AppImage, new.clone(), files, false);
 
         // An update rewrites both.
-        assert_eq!(linux::integrate_into(&data, app, &new, &[], Some(&rec), None).len(), 2);
+        assert_eq!(linux::integrate_into(&data, app, &new, &[], Some(&rec), Some(&downloaded)).len(), 2);
 
         // Someone else's entry and icon are left alone (and not recorded).
         std::fs::write(&desktop, "[Desktop Entry]\nExec=/usr/bin/wordcraft\n").unwrap();
@@ -2392,7 +2409,7 @@ mod tests {
         // With the record, the launcher's icon goes too.
         std::fs::remove_file(&icon).unwrap();
         std::fs::write(&new, b"").unwrap();
-        let files = linux::integrate_into(&data, app, &new, &[], None, None);
+        let files = linux::integrate_into(&data, app, &new, &[], None, Some(&downloaded));
         let rec = record("0.3.0", PackageKind::AppImage, new.clone(), files, false);
         std::fs::remove_file(&new).unwrap();
         linux::unintegrate_from(&data, app, &new, Some(&rec));

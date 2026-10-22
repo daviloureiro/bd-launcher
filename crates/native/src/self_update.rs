@@ -141,14 +141,14 @@ fn detect(exe: &Path) -> Option<Install> {
     if let Some(appimage) = std::env::var_os("APPIMAGE") {
         return Some(Install::AppImage(PathBuf::from(appimage)));
     }
-    if exe != Path::new("/usr/bin").join(launcher().id) {
+    if exe != Path::new("/usr/bin").join(&launcher().id) {
         return None;
     }
     let t = std::time::Duration::from_secs(10);
-    if process::capture("dpkg-query", &["-W", "-f", "${db:Status-Status}", launcher().id], t).is_some_and(|s| s.trim() == "installed") {
+    if process::capture("dpkg-query", &["-W", "-f", "${db:Status-Status}", &launcher().id], t).is_some_and(|s| s.trim() == "installed") {
         return Some(Install::Package(PackageKind::Deb, exe.to_path_buf()));
     }
-    if process::capture("rpm", &["-q", launcher().id], t).is_some() {
+    if process::capture("rpm", &["-q", &launcher().id], t).is_some() {
         return Some(Install::Package(PackageKind::Rpm, exe.to_path_buf()));
     }
     // A pacman install of the launcher. We detect the release's own Arch package (by bundle id).
@@ -195,7 +195,7 @@ fn from_bundle() -> bool {
 /// taken: `bd-launcher-origin`, `bd-launcher1-origin`, …
 #[cfg(target_os = "linux")]
 fn is_bundle_origin(origin: &str) -> bool {
-    origin.strip_prefix(launcher().id).and_then(|rest| rest.strip_suffix("-origin")).is_some_and(|n| n.bytes().all(|b| b.is_ascii_digit()))
+    origin.strip_prefix(launcher().id.as_str()).and_then(|rest| rest.strip_suffix("-origin")).is_some_and(|n| n.bytes().all(|b| b.is_ascii_digit()))
 }
 
 #[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
