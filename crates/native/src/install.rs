@@ -1662,50 +1662,56 @@ pub(crate) fn msi_path(msi: &Path) -> Result<PathBuf, String> {
     resolved.map_err(|e| format!("couldn't resolve the Windows Installer package {} ({e})", msi.display()))
 }
 
-/// The publisher every Windows payload must be signed by. Mirrors the macOS team-id pin
-/// (`macos::TEAM_ID`): a valid signature from anyone else is refused. The subject's first
-/// RDN must be exactly this CN: a substring match would also trust `CN=Evil BD Tecnologia`.
+/// The publisher every Windows payload must be signed by: Learning Machines Inc, the
+/// identity that signs every Craft App and BD Launcher (the macOS side pins the same
+/// organisation's team id, `macos::TEAM_ID`). The CN and O are matched exactly: a substring
+/// check would also trust `CN=Evil Learning Machines Inc`.
 #[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) const WINDOWS_PUBLISHER_CN: &str = "CN=BD Tecnologia";
+pub(crate) const WINDOWS_PUBLISHER_CN: &str = "Learning Machines Inc";
 
-/// The expected Authenticode certificate thumbprint (SHA-1, 40 hex digits), set at build
-/// time from `BD_WINDOWS_CERT_THUMBPRINT`. Release builds set it, and then a valid
-/// signature from any other certificate is refused even when the subject matches.
-/// Development builds leave it empty and rely on the exact subject plus a well-formed
-/// thumbprint; `verify_signature` only runs on real Windows installs.
+/// The certification authority the publisher signs through: Microsoft's Trusted Signing,
+/// which issues short-lived certificates (a few days each). A leaf thumbprint rotates with
+/// every signing run, so it is required to be well-formed but never pinned to one value;
+/// the stable identity is the subject above, under a Trusted Signing CA.
 #[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) const WINDOWS_CERT_THUMBPRINT: &str = match option_env!("BD_WINDOWS_CERT_THUMBPRINT") {
-    Some(thumbprint) => thumbprint,
-    None => "",
-};
+pub(crate) const WINDOWS_SIGNING_CA_PREFIX: &str = "CN=Microsoft ID Verified CS ";
 
 /// Whether PowerShell's signature report says the file carries a valid signature from the
-/// publisher. The report is `Status|Subject|Thumbprint`, one line.
+/// publisher, through the expected CA. The report is `Status|Subject|Thumbprint|Issuer`,
+/// one line.
 #[cfg_attr(not(windows), allow(dead_code))]
 fn signature_trusted(report: &str) -> bool {
     let mut fields = report.trim().split('|');
-    let (Some(status), Some(subject), Some(thumbprint), None) = (fields.next(), fields.next(), fields.next(), fields.next()) else {
+    let (Some(status), Some(subject), Some(thumbprint), Some(issuer), None) =
+        (fields.next(), fields.next(), fields.next(), fields.next(), fields.next())
+    else {
         return false;
     };
     if status.trim() != "Valid" {
         return false;
     }
-    if subject.split(',').next().map(str::trim) != Some(WINDOWS_PUBLISHER_CN) {
+    if dn_value(subject, "CN").as_deref() != Some(WINDOWS_PUBLISHER_CN) {
+        return false;
+    }
+    if dn_value(subject, "O").as_deref() != Some(WINDOWS_PUBLISHER_CN) {
+        return false;
+    }
+    if !issuer.starts_with(WINDOWS_SIGNING_CA_PREFIX) {
         return false;
     }
     let thumbprint: String = thumbprint.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-    // A real signature always carries a SHA-1 thumbprint; the pin below additionally
-    // requires it to be the release certificate's.
-    if thumbprint.len() != 40 {
-        return false;
-    }
-    if !WINDOWS_CERT_THUMBPRINT.is_empty() {
-        let expected: String = WINDOWS_CERT_THUMBPRINT.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-        if !thumbprint.eq_ignore_ascii_case(&expected) {
-            return false;
-        }
-    }
-    true
+    // A real signature always carries a SHA-1 thumbprint. It is not pinned to one value:
+    // the signing CA rotates it every few days.
+    thumbprint.len() == 40
+}
+
+/// The value of `attr` in a `CN=x, O=y, …` distinguished name.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn dn_value(dn: &str, attr: &str) -> Option<String> {
+    dn.split(',').find_map(|r| {
+        let (key, value) = r.split_once('=')?;
+        (key.trim() == attr).then(|| value.trim().to_string())
+    })
 }
 
 #[cfg(windows)]
@@ -1732,12 +1738,12 @@ pub mod windows {
             "-NoProfile",
             "-NonInteractive",
             "-Command",
-            "$s = Get-AuthenticodeSignature -FilePath $env:BD_VERIFY_PATH; \"$($s.Status)|$($s.SignerCertificate.Subject)|$($s.SignerCertificate.Thumbprint)\"",
+            "$s = Get-AuthenticodeSignature -FilePath $env:BD_VERIFY_PATH; \"$($s.Status)|$($s.SignerCertificate.Subject)|$($s.SignerCertificate.Thumbprint)|$($s.SignerCertificate.Issuer)\"",
         ]);
         cmd.env(VAR, text);
         let out = crate::process::run_command(cmd, "powershell.exe", std::time::Duration::from_secs(60))
             .map_err(|e| format!("couldn't check the download's signature ({e})"))?;
-        if signature_trusted(&out) { Ok(()) } else { Err("the download isn't signed by BD Tecnologia; refusing to run it".into()) }
+        if signature_trusted(&out) { Ok(()) } else { Err("the download isn't signed by Learning Machines Inc; refusing to run it".into()) }
     }
 
     fn explain(code: Option<i32>) -> Result<(), String> {
@@ -1827,22 +1833,26 @@ mod tests {
 
     #[test]
     fn only_the_publishers_valid_signature_is_trusted() {
-        let good = "Valid|CN=BD Tecnologia, O=BD Tecnologia|A1B2C3D4E5F60718293A4B5C6D7E8F9012345678";
-        assert!(signature_trusted(good));
-        // A substring of the publisher is not the publisher.
-        assert!(!signature_trusted("Valid|CN=Evil BD Tecnologia, O=Evil|A1B2C3D4E5F60718293A4B5C6D7E8F9012345678"));
-        // The CN must be the first RDN: anything in front of it is refused.
-        assert!(!signature_trusted("Valid|OU=Evil, CN=BD Tecnologia|A1B2C3D4E5F60718293A4B5C6D7E8F9012345678"));
-        assert!(!signature_trusted("NotSigned|CN=BD Tecnologia, O=BD Tecnologia|A1B2C3D4E5F60718293A4B5C6D7E8F9012345678"));
-        // A real signature always carries a SHA-1 thumbprint.
-        assert!(!signature_trusted("Valid|CN=BD Tecnologia, O=BD Tecnologia|short"));
-        assert!(!signature_trusted("Valid|CN=BD Tecnologia, O=BD Tecnologia|"));
-        // The two-field report the old check accepted is refused now.
-        assert!(!signature_trusted("Valid|CN=BD Tecnologia, O=BD Tecnologia"));
+        let subject = "CN=Learning Machines Inc, O=Learning Machines Inc, L=Atlanta, S=Georgia, C=US";
+        let ca_aoc = "CN=Microsoft ID Verified CS AOC CA 04, O=Microsoft Corporation, C=US";
+        let ca_eoc = "CN=Microsoft ID Verified CS EOC CA 03, O=Microsoft Corporation, C=US";
+        // Both Trusted Signing certificates in the wild pass.
+        assert!(signature_trusted(&format!("Valid|{subject}|54A063654E51CD00D5620C36616F9A6AA30EDD15|{ca_aoc}")));
+        assert!(signature_trusted(&format!("Valid|{subject}|ACA9C7311C78A6812673319EB8D6BB6C2E736822|{ca_eoc}")));
+        // A lookalike publisher is not the publisher...
+        assert!(!signature_trusted(&format!("Valid|CN=Evil Learning Machines Inc, O=Evil|54A063654E51CD00D5620C36616F9A6AA30EDD15|{ca_aoc}")));
+        // ...and neither is the previously assumed one.
+        assert!(!signature_trusted(&format!("Valid|CN=BD Tecnologia, O=BD Tecnologia|54A063654E51CD00D5620C36616F9A6AA30EDD15|{ca_aoc}")));
+        // A valid signature from outside the Trusted Signing CA is refused.
+        assert!(!signature_trusted(&format!("Valid|{subject}|54A063654E51CD00D5620C36616F9A6AA30EDD15|CN=Some Other CA, O=Other, C=US")));
+        assert!(!signature_trusted(&format!("NotSigned|{subject}|54A063654E51CD00D5620C36616F9A6AA30EDD15|{ca_aoc}")));
+        // Malformed reports are refused: a short thumbprint, a missing field, a trailing
+        // field, and the old three-field shape.
+        assert!(!signature_trusted(&format!("Valid|{subject}|short|{ca_aoc}")));
+        assert!(!signature_trusted(&format!("Valid|{subject}|{ca_aoc}")));
+        assert!(!signature_trusted(&format!("Valid|{subject}|54A063654E51CD00D5620C36616F9A6AA30EDD15|{ca_aoc}|extra")));
         assert!(!signature_trusted("Valid"));
         assert!(!signature_trusted(""));
-        // A trailing field is refused.
-        assert!(!signature_trusted("Valid|CN=BD Tecnologia|A1B2C3D4E5F60718293A4B5C6D7E8F9012345678|extra"));
     }
 
     #[cfg(windows)]

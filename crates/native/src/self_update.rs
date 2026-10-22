@@ -284,7 +284,6 @@ pub fn update(
                     ("BD_UPDATE_TMP", tmp.as_os_str()),
                     ("BD_UPDATE_DIR", dir.as_os_str()),
                     ("BD_UPDATE_EXE", std::ffi::OsStr::new(name)),
-                    ("BD_UPDATE_THUMBPRINT", std::ffi::OsStr::new(install::WINDOWS_CERT_THUMBPRINT)),
                 ],
             )
         }
@@ -452,8 +451,10 @@ const PORTABLE_UPDATE_SCRIPT: &str = "$t = $env:BD_UPDATE_TMP; $z = $env:BD_UPDA
     $found = Get-ChildItem -LiteralPath $top.FullName -Filter $env:BD_UPDATE_EXE -File | Select-Object -First 1; \
     if (-not $found) { exit 1 }; \
     $s = Get-AuthenticodeSignature -FilePath $found.FullName; \
-    if ($s.Status -ne 'Valid' -or (($s.SignerCertificate.Subject -split ',')[0].Trim() -ne 'CN=BD Tecnologia')) { exit 1 }; \
-    $t = $env:BD_UPDATE_THUMBPRINT; if ($t -and $s.SignerCertificate.Thumbprint -ne $t) { exit 1 }; \
+    $dn = @{}; $s.SignerCertificate.Subject -split ',' | ForEach-Object { $kv = $_.Split('=', 2); if ($kv.Count -eq 2) { $dn[$kv[0].Trim()] = $kv[1].Trim() } }; \
+    if ($s.Status -ne 'Valid' -or $dn['CN'] -ne 'Learning Machines Inc' -or $dn['O'] -ne 'Learning Machines Inc') { exit 1 }; \
+    if ($s.SignerCertificate.Issuer -notlike 'CN=Microsoft ID Verified CS *') { exit 1 }; \
+    if ($s.SignerCertificate.Thumbprint -notmatch '^[0-9A-Fa-f]{40}$') { exit 1 }; \
     Copy-Item -LiteralPath (Join-Path $top.FullName '*') -Destination $d -Recurse -Force; \
     Remove-Item -LiteralPath $t -Recurse -Force -ErrorAction SilentlyContinue; \
     Remove-Item -LiteralPath $z -ErrorAction SilentlyContinue";
@@ -641,11 +642,12 @@ mod tests {
     #[test]
     fn the_portable_update_checks_the_new_executable_signature() {
         assert!(PORTABLE_UPDATE_SCRIPT.contains("Get-AuthenticodeSignature"), "{PORTABLE_UPDATE_SCRIPT}");
-        assert!(PORTABLE_UPDATE_SCRIPT.contains("BD Tecnologia"), "{PORTABLE_UPDATE_SCRIPT}");
-        // The subject match is exact: a substring check would also trust `CN=Evil BD Tecnologia`.
-        assert!(!PORTABLE_UPDATE_SCRIPT.contains("-notlike"), "{PORTABLE_UPDATE_SCRIPT}");
-        assert!(PORTABLE_UPDATE_SCRIPT.contains("BD_UPDATE_THUMBPRINT"), "{PORTABLE_UPDATE_SCRIPT}");
-        for env in ["BD_UPDATE_ZIP", "BD_UPDATE_TMP", "BD_UPDATE_DIR", "BD_UPDATE_EXE", "BD_UPDATE_THUMBPRINT"] {
+        assert!(PORTABLE_UPDATE_SCRIPT.contains("Learning Machines Inc"), "{PORTABLE_UPDATE_SCRIPT}");
+        assert!(PORTABLE_UPDATE_SCRIPT.contains("Microsoft ID Verified CS"), "{PORTABLE_UPDATE_SCRIPT}");
+        // The subject match is exact: a substring check would also trust a lookalike.
+        assert!(!PORTABLE_UPDATE_SCRIPT.contains("BD Tecnologia"), "{PORTABLE_UPDATE_SCRIPT}");
+        assert!(!PORTABLE_UPDATE_SCRIPT.contains("BD_UPDATE_THUMBPRINT"), "{PORTABLE_UPDATE_SCRIPT}");
+        for env in ["BD_UPDATE_ZIP", "BD_UPDATE_TMP", "BD_UPDATE_DIR", "BD_UPDATE_EXE"] {
             assert!(PORTABLE_UPDATE_SCRIPT.contains(&format!("$env:{env}")), "{PORTABLE_UPDATE_SCRIPT}");
         }
         assert!(!PORTABLE_UPDATE_SCRIPT.contains("Expand-Archive -Path"), "the zip path must stay a literal path");
