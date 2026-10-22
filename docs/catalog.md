@@ -195,6 +195,19 @@ cargo xtask publish --app meuapp --version 1.1.0 --dir dist/1.1.0 --app-file app
 }
 ```
 
+### BD's social accounts
+
+The footer's and the Settings dialog's social icons come from the catalog, so a wrong handle is a
+one-line write to Firebase and not a new launcher:
+
+```sh
+cargo xtask publish --app meuapp --version 1.3.0 --dir dist/1.3.0 \
+    --social "YouTube=https://www.youtube.com/@bdtecnologia,Instagram=https://www.instagram.com/bd"
+```
+
+Only a name the launcher has an icon for is kept (`X`, `Instagram`, `LinkedIn`, `YouTube`,
+`TikTok`), and only an `https` address. Without `--social` the list in the catalog stands.
+
 ### Publishing the launcher's own release
 
 The launcher updates itself from the catalog too, so its release is published the same way:
@@ -209,8 +222,9 @@ update.
 ### Publishing from CI
 
 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) is a template: copy it into
-the repository of the app you publish, and it does the whole job when you cut a release. Two
-secrets are needed in that repository's settings:
+the repository of the app you publish, and it does the whole job when you cut a release. It
+checks the launcher's repository out beside the app (that is where the publishing tool lives)
+and runs it from there. Two secrets are needed in the app's repository's settings:
 
 - `FIREBASE_TOKEN` — the token from `firebase login:ci`.
 - `FIREBASE_SERVICE_ACCOUNT` — the service account's JSON (*Project settings → Service

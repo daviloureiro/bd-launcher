@@ -278,10 +278,12 @@ impl LauncherUi {
                 if widgets::button(ui, tl!("GitHub"), Kind::Secondary, 0.0).on_hover_text(GITHUB_URL).clicked() {
                     ui.ctx().open_url(egui::OpenUrl::new_tab(GITHUB_URL));
                 }
-                // Wrap the social links as a group so their icons stay together.
-                let width = widgets::icon_links_width(bd_launcher_core::catalog::SOCIAL.len(), 16.0);
+                // Wrap the social links as a group so their icons stay together. The catalog
+                // names the accounts; the built-in list is the fallback.
+                let accounts = self.social_accounts();
+                let width = widgets::icon_links_width(accounts.len(), 16.0);
                 ui.allocate_ui_with_layout(vec2(width, theme::CONTROL_H), egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                    widgets::social_icons(ui, 16.0);
+                    widgets::social_icons(ui, 16.0, &accounts);
                 });
             });
         });

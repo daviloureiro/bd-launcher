@@ -4,6 +4,9 @@
 # TODO. It runs when you cut a release: it builds the files, uploads them to the Firebase
 # storage bucket and writes the app's entry in the catalog.
 #
+# The publishing tool lives in the launcher's repository, so the workflow checks it out beside
+# the app and runs it from there.
+#
 # Two secrets are needed in the repository's settings (Settings → Secrets and variables →
 # Actions):
 #   FIREBASE_TOKEN             the token from `firebase login:ci`
@@ -27,12 +30,20 @@ permissions:
 env:
   APP_ID: meuapp # TODO: the app's machine name
   FIREBASE_PROJECT: bd-tecnologia
+  LAUNCHER_REPO: bd-tecnologia/bd-launcher
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: app
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.LAUNCHER_REPO }}
+          path: launcher
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -58,13 +69,15 @@ jobs:
 
       # TODO: build the files, and put them in a folder named after the version.
       - name: Build
+        working-directory: app
         run: echo "Build the app here; the files go to dist/" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish
+        working-directory: app
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           if [ "${{ inputs.version }}" != "" ]; then VERSION="${{ inputs.version }}"; fi
-          cargo xtask publish \
+          cargo run --quiet --manifest-path launcher/Cargo.toml -p xtask -- publish \
             --app "$APP_ID" \
             --version "$VERSION" \
             --dir "dist/$VERSION" \

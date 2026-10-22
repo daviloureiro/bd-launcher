@@ -491,8 +491,8 @@ pub fn more_menu<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) {
 
 /// BD's social accounts as a row of small monochrome icons (faint, brighter on hover).
 /// In a right-to-left layout they still read left to right.
-pub fn social_icons(ui: &mut Ui, size: f32) {
-    let links: Vec<IconLink> = bd_launcher_core::catalog::SOCIAL.iter().map(|(name, url)| social_link(name, url)).collect();
+pub fn social_icons(ui: &mut Ui, size: f32, accounts: &[(String, String)]) {
+    let links: Vec<IconLink> = accounts.iter().map(|(name, url)| social_link(name, url)).collect();
     icon_links(ui, size, &links);
 }
 

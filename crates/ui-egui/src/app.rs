@@ -528,6 +528,15 @@ impl LauncherUi {
         Some(egui::ImageSource::Bytes { uri: format!("bytes://app-icons/{id}").into(), bytes: egui::load::Bytes::Shared(bytes.clone()) })
     }
 
+    /// The social accounts to show: the ones the catalog names, or the built-in list when it
+    /// names none.
+    pub(crate) fn social_accounts(&self) -> Vec<(String, String)> {
+        if self.social.is_empty() {
+            return bd_launcher_core::catalog::SOCIAL.iter().map(|(name, url)| ((*name).to_string(), (*url).to_string())).collect();
+        }
+        self.social.iter().map(|link| (link.name.clone(), link.url.clone())).collect()
+    }
+
     /// The app's details page, when the catalog carries one.
     pub(crate) fn app_details(&self, id: &str) -> Option<bd_launcher_core::catalog::AppDetails> {
         self.entry(id).and_then(|e| e.app.details.clone())

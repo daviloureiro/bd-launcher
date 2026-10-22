@@ -313,7 +313,7 @@ impl LauncherUi {
             let short = fmt(tl!("GitHub limit hit; back in {min} min"), &[("min", &min)]);
             (format!("· {full}"), format!("· {short}"))
         });
-        use bd_launcher_core::catalog::{GITHUB_URL, SOCIAL, WEBSITE_URL};
+        use bd_launcher_core::catalog::{GITHUB_URL, WEBSITE_URL};
         // Every link is an icon, reading Website, GitHub, Discord, then the social accounts.
         let named = |name: &str, label: &str, url: &str| widgets::IconLink {
             name: name.to_string(),
@@ -333,16 +333,11 @@ impl LauncherUi {
         ];
         // The catalog names the social accounts; the built-in list is the fallback. An account
         // that is already on the row is not added twice.
-        let accounts: Vec<(&str, &str)> = if self.social.is_empty() {
-            SOCIAL.iter().map(|(name, url)| (*name, *url)).collect()
-        } else {
-            self.social.iter().map(|link| (link.name.as_str(), link.url.as_str())).collect()
-        };
-        for (name, url) in accounts {
-            if links.iter().any(|link| link.name.eq_ignore_ascii_case(name)) {
+        for (name, url) in self.social_accounts() {
+            if links.iter().any(|link| link.name.eq_ignore_ascii_case(&name)) {
                 continue;
             }
-            links.push(widgets::social_link(name, url));
+            links.push(widgets::social_link(&name, &url));
         }
         let icon = 13.0;
         let spacing = ui.spacing().item_spacing.x;

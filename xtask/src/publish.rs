@@ -34,6 +34,7 @@ usage: cargo xtask publish --app <id> --version <x.y.z> --dir <folder> [options]
   --tagline <text>  the app's one-line description (only needed the first time)
   --color <hex>     the app's colour, as #1876ff (only needed the first time)
   --app-file <file> a JSON file with the app's metadata (the same fields as the catalog)
+  --social <list>   BD's social accounts, as Name=address,Name=address
   --launcher        publish BD Launcher's own release, not an app's
   --project <id>    the Firebase project (default: bd-tecnologia)
   --bucket <name>   the storage bucket (default: bd-tecnologia.firebasestorage.app)
@@ -55,6 +56,7 @@ struct Options {
     tagline: Option<String>,
     color: Option<String>,
     app_file: Option<PathBuf>,
+    social: Vec<(String, String)>,
     launcher: bool,
     project: String,
     bucket: String,
@@ -102,7 +104,15 @@ pub fn run(args: &[&str]) -> Result<(), String> {
 
     // 3. The catalog entry, in the Realtime Database.
     let entry = entry(&options, &files);
-    write_catalog(&options, &entry)?;
+    let path = if options.launcher { "catalog/launcher".to_string() } else { format!("catalog/apps/{}", options.app.clone().unwrap_or_default()) };
+    write_catalog(&options, &path, &entry)?;
+
+    // 4. BD's social accounts, when the run says which they are.
+    if !options.social.is_empty() {
+        let links: Vec<String> =
+            options.social.iter().map(|(name, url)| format!("{{\"name\":{},\"url\":{}}}", json_string(name), json_string(url))).collect();
+        write_catalog(&options, "catalog/social", &format!("[{}]", links.join(",")))?;
+    }
     println!("\npublished {} {} to {}", if options.launcher { "BD Launcher" } else { &id }, options.version, id);
     Ok(())
 }
@@ -118,6 +128,7 @@ fn parse(args: &[&str]) -> Result<Options, String> {
     let mut tagline = None;
     let mut color = None;
     let mut app_file = None;
+    let mut social = Vec::new();
     let mut launcher = false;
     let mut project = DEFAULT_PROJECT.to_string();
     let mut bucket = DEFAULT_BUCKET.to_string();
@@ -138,6 +149,7 @@ fn parse(args: &[&str]) -> Result<Options, String> {
             "--tagline" => tagline = Some(value()?),
             "--color" => color = Some(value()?),
             "--app-file" => app_file = Some(PathBuf::from(value()?)),
+            "--social" => social = parse_social(&value()?)?,
             "--launcher" => launcher = true,
             "--project" => project = value()?,
             "--bucket" => bucket = value()?,
@@ -158,9 +170,44 @@ fn parse(args: &[&str]) -> Result<Options, String> {
         if !app.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b)) {
             return Err(format!("`{app}` is not a usable app name: letters, digits, `-` and `_` only"));
         }
-        return Ok(Options { app: Some(app), version, dir, icon, notes, name, tagline, color, app_file, launcher, project, bucket, token, dry_run });
+        return Ok(Options {
+            app: Some(app),
+            version,
+            dir,
+            icon,
+            notes,
+            name,
+            tagline,
+            color,
+            app_file,
+            social,
+            launcher,
+            project,
+            bucket,
+            token,
+            dry_run,
+        });
     }
-    Ok(Options { app: None, version, dir, icon, notes, name, tagline, color, app_file, launcher, project, bucket, token, dry_run })
+    Ok(Options { app: None, version, dir, icon, notes, name, tagline, color, app_file, social, launcher, project, bucket, token, dry_run })
+}
+
+/// BD's social accounts, as `Name=address,Name=address`.
+fn parse_social(list: &str) -> Result<Vec<(String, String)>, String> {
+    let mut out = Vec::new();
+    for pair in list.split(',').map(str::trim).filter(|p| !p.is_empty()) {
+        let Some((name, url)) = pair.split_once('=') else {
+            return Err(format!("`{pair}` is not a social account: it should be `Name=address`"));
+        };
+        let (name, url) = (name.trim(), url.trim());
+        if name.is_empty() || url.is_empty() {
+            return Err(format!("`{pair}` is not a social account: it should be `Name=address`"));
+        }
+        if !url.starts_with("https://") {
+            return Err(format!("`{url}` is not an https address"));
+        }
+        out.push((name.to_string(), url.to_string()));
+    }
+    Ok(out)
 }
 
 /// The release files, with their sizes and checksums.
@@ -511,9 +558,8 @@ fn read_catalog(options: &Options, id: &str, token: &str) -> Option<String> {
     Some(text)
 }
 
-/// Writes the app's entry in the Realtime Database.
-fn write_catalog(options: &Options, entry: &str) -> Result<(), String> {
-    let path = if options.launcher { "catalog/launcher".to_string() } else { format!("catalog/apps/{}", options.app.clone().unwrap_or_default()) };
+/// Writes a part of the catalog in the Realtime Database.
+fn write_catalog(options: &Options, path: &str, entry: &str) -> Result<(), String> {
     let Some(token) = options.token.as_deref() else {
         eprintln!(
             "\nThe files are uploaded, but the catalog was not updated: no Realtime Database token.\n\
@@ -564,6 +610,7 @@ mod tests {
             tagline: None,
             color: None,
             app_file: None,
+            social: Vec::new(),
             launcher: false,
             project: "p".into(),
             bucket: "b".into(),
@@ -594,6 +641,18 @@ mod tests {
         assert_eq!(fields.len(), 2);
         assert_eq!(fields[0].0, "name");
         assert_eq!(fields[0].1, "\"Meu App\"");
+    }
+
+    #[test]
+    fn the_social_accounts_are_read_and_the_bad_ones_refused() {
+        let accounts = parse_social("YouTube=https://youtube.com/@bd, Instagram=https://instagram.com/bd").unwrap();
+        assert_eq!(
+            accounts,
+            [("YouTube".to_string(), "https://youtube.com/@bd".to_string()), ("Instagram".to_string(), "https://instagram.com/bd".to_string())]
+        );
+        assert!(parse_social("YouTube").is_err(), "a name without an address");
+        assert!(parse_social("YouTube=ftp://x").is_err(), "an address that isn't https");
+        assert!(parse_social("=https://x").is_err(), "an account without a name");
     }
 
     #[test]
