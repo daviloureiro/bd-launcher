@@ -2,6 +2,7 @@
 /*
   X-Content-Type-Options: nosniff
   Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://raw.githubusercontent.com; connect-src 'self' https://api.github.com https://raw.githubusercontent.com; font-src 'self'; object-src 'none'; base-uri 'self'
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
 
 /*.wasm
   Content-Type: application/wasm

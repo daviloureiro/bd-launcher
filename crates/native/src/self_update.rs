@@ -284,6 +284,7 @@ pub fn update(
                     ("BD_UPDATE_TMP", tmp.as_os_str()),
                     ("BD_UPDATE_DIR", dir.as_os_str()),
                     ("BD_UPDATE_EXE", std::ffi::OsStr::new(name)),
+                    ("BD_UPDATE_THUMBPRINT", std::ffi::OsStr::new(install::WINDOWS_CERT_THUMBPRINT)),
                 ],
             )
         }
@@ -451,7 +452,8 @@ const PORTABLE_UPDATE_SCRIPT: &str = "$t = $env:BD_UPDATE_TMP; $z = $env:BD_UPDA
     $found = Get-ChildItem -LiteralPath $top.FullName -Filter $env:BD_UPDATE_EXE -File | Select-Object -First 1; \
     if (-not $found) { exit 1 }; \
     $s = Get-AuthenticodeSignature -FilePath $found.FullName; \
-    if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Subject -notlike '*BD Tecnologia*') { exit 1 }; \
+    if ($s.Status -ne 'Valid' -or (($s.SignerCertificate.Subject -split ',')[0].Trim() -ne 'CN=BD Tecnologia')) { exit 1 }; \
+    $t = $env:BD_UPDATE_THUMBPRINT; if ($t -and $s.SignerCertificate.Thumbprint -ne $t) { exit 1 }; \
     Copy-Item -LiteralPath (Join-Path $top.FullName '*') -Destination $d -Recurse -Force; \
     Remove-Item -LiteralPath $t -Recurse -Force -ErrorAction SilentlyContinue; \
     Remove-Item -LiteralPath $z -ErrorAction SilentlyContinue";
@@ -467,7 +469,7 @@ fn portable_update_step(zip: &Path, tmp: &Path, dir: &Path, exe_name: &str) -> R
     }
     if exe_name.is_empty()
         || exe_name.len() > 64
-        || exe_name.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':' | '\'' | '"'))
+        || exe_name.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':' | '\'' | '"' | '*' | '?' | '[' | ']'))
         || !exe_name.to_ascii_lowercase().ends_with(".exe")
     {
         return Err("unusual characters in a path".into());
@@ -640,7 +642,10 @@ mod tests {
     fn the_portable_update_checks_the_new_executable_signature() {
         assert!(PORTABLE_UPDATE_SCRIPT.contains("Get-AuthenticodeSignature"), "{PORTABLE_UPDATE_SCRIPT}");
         assert!(PORTABLE_UPDATE_SCRIPT.contains("BD Tecnologia"), "{PORTABLE_UPDATE_SCRIPT}");
-        for env in ["BD_UPDATE_ZIP", "BD_UPDATE_TMP", "BD_UPDATE_DIR", "BD_UPDATE_EXE"] {
+        // The subject match is exact: a substring check would also trust `CN=Evil BD Tecnologia`.
+        assert!(!PORTABLE_UPDATE_SCRIPT.contains("-notlike"), "{PORTABLE_UPDATE_SCRIPT}");
+        assert!(PORTABLE_UPDATE_SCRIPT.contains("BD_UPDATE_THUMBPRINT"), "{PORTABLE_UPDATE_SCRIPT}");
+        for env in ["BD_UPDATE_ZIP", "BD_UPDATE_TMP", "BD_UPDATE_DIR", "BD_UPDATE_EXE", "BD_UPDATE_THUMBPRINT"] {
             assert!(PORTABLE_UPDATE_SCRIPT.contains(&format!("$env:{env}")), "{PORTABLE_UPDATE_SCRIPT}");
         }
         assert!(!PORTABLE_UPDATE_SCRIPT.contains("Expand-Archive -Path"), "the zip path must stay a literal path");
@@ -650,6 +655,8 @@ mod tests {
         let target = dir.path().join("App");
         assert!(portable_update_step(&zip, &tmp, &target, "bd-launcher.exe").is_ok());
         assert!(portable_update_step(&zip, &tmp, &target, "../evil.exe").is_err());
+        // The name becomes a `-Filter` pattern: wildcards would match the wrong file.
+        assert!(portable_update_step(&zip, &tmp, &target, "bd-*.exe").is_err());
         assert!(portable_update_step(&zip, &tmp, &target, "bd-launcher.exe\nRemove-Item C:\\").is_err());
         assert!(portable_update_step(Path::new("relative.zip"), &tmp, &target, "bd-launcher.exe").is_err());
     }

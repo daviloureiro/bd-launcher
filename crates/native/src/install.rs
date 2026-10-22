@@ -577,6 +577,16 @@ fn prepare_home(home: &Path) {
     }
 }
 
+/// A staging folder name unique to this update: the process id keeps two launcher copies
+/// apart, the counter keeps two updates inside this process apart. A fixed `<id>.new` name
+/// would let a second update reuse the first one's half-written staging folder.
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+fn staging_tag(app: &App) -> String {
+    static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("{}.new.{}.{}", app.id, std::process::id(), n)
+}
+
 /// A new folder of our own inside `dir`, removed when dropped: a predictable name there may be
 /// the user's.
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -946,7 +956,7 @@ pub(crate) mod linux {
     /// sandbox instead of on the host. `bin` and `share` are swapped in one at a time, so an
     /// update leaves the app's own `home/` beside them untouched.
     pub fn install_tree(app: &App, file: &Path, paths: &Paths) -> Result<PathBuf, String> {
-        let staged = paths.cache.join(format!("{}.new", app.id));
+        let staged = paths.cache.join(super::staging_tag(app));
         let result = unpack_tree(app, file, &staged, paths);
         let _ = std::fs::remove_dir_all(&staged);
         result
@@ -1038,14 +1048,15 @@ pub(crate) mod linux {
         // launcher owns, whatever the catalog names.
         let applications = data.join("applications");
         let icons = data.join("icons/hicolor/128x128/apps");
-        if !desktop.starts_with(&applications) || !icon.starts_with(&icons) {
+        // Both are direct children by construction: an exact-parent check, not a
+        // prefix one, so no catalog value can smuggle a path past the folders owned here.
+        if desktop.parent() != Some(applications.as_path()) || icon.parent() != Some(icons.as_path()) {
             log::warn!("{}: refusing to write a menu entry outside the data folder", app.id);
             return written;
         }
         let has_icon = match icon_png {
             Some(png) if !icon.exists() || ours_before(&icon) => {
-                let copied = std::fs::read(png).map_err(|e| e.to_string()).and_then(|bytes| crate::paths::write_atomic(&icon, &bytes));
-                match copied {
+                match std::fs::read(png).map_err(|e| e.to_string()).and_then(|bytes| crate::paths::write_atomic(&icon, &bytes)) {
                     Ok(()) => {
                         written.push(icon.clone());
                         true
@@ -1231,6 +1242,12 @@ pub mod macos {
     ) -> Result<PathBuf, String> {
         let bundle = format!("{}.app", app.name);
         let src = mount.join(&bundle);
+        // A link where the bundle should be would resolve outside the mounted image (and
+        // `ditto` would copy the link itself into /Applications): only a real folder passes.
+        // The mount is read-only, so nothing can swap the bundle for a link afterwards.
+        if std::fs::symlink_metadata(&src).is_ok_and(|m| m.is_symlink()) {
+            return Err("the disk image doesn't contain the app".into());
+        }
         crate::detect::macos::read_bundle(app, &src).ok_or("the disk image doesn't contain the app")?;
         let dir = applications_dir(existing, destination)?;
         let dest = existing.filter(|i| i.source == InstallSource::MacApp).map_or_else(|| dir.join(&bundle), |i| PathBuf::from(&i.location));
@@ -1459,7 +1476,7 @@ mod freebsd {
     /// into `~/.local` when polkit isn't installed. Returns the binary, every file installed,
     /// and whether removing them needs root.
     pub fn install_tree(app: &App, file: &Path, paths: &Paths) -> Result<(PathBuf, Vec<PathBuf>, bool), String> {
-        let staging = paths.cache.join(format!("{}.new", app.id));
+        let staging = paths.cache.join(super::staging_tag(app));
         let result = install_from(app, file, &staging);
         let _ = std::fs::remove_dir_all(&staging);
         result
@@ -1646,16 +1663,49 @@ pub(crate) fn msi_path(msi: &Path) -> Result<PathBuf, String> {
 }
 
 /// The publisher every Windows payload must be signed by. Mirrors the macOS team-id pin
-/// (`macos::TEAM_ID`): a valid signature from anyone else is refused.
+/// (`macos::TEAM_ID`): a valid signature from anyone else is refused. The subject's first
+/// RDN must be exactly this CN: a substring match would also trust `CN=Evil BD Tecnologia`.
 #[cfg_attr(not(windows), allow(dead_code))]
-const WINDOWS_PUBLISHER: &str = "BD Tecnologia";
+pub(crate) const WINDOWS_PUBLISHER_CN: &str = "CN=BD Tecnologia";
+
+/// The expected Authenticode certificate thumbprint (SHA-1, 40 hex digits), set at build
+/// time from `BD_WINDOWS_CERT_THUMBPRINT`. Release builds set it, and then a valid
+/// signature from any other certificate is refused even when the subject matches.
+/// Development builds leave it empty and rely on the exact subject plus a well-formed
+/// thumbprint; `verify_signature` only runs on real Windows installs.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) const WINDOWS_CERT_THUMBPRINT: &str = match option_env!("BD_WINDOWS_CERT_THUMBPRINT") {
+    Some(thumbprint) => thumbprint,
+    None => "",
+};
 
 /// Whether PowerShell's signature report says the file carries a valid signature from the
-/// publisher. The report is `Status|Subject`, one line.
+/// publisher. The report is `Status|Subject|Thumbprint`, one line.
 #[cfg_attr(not(windows), allow(dead_code))]
 fn signature_trusted(report: &str) -> bool {
-    let Some((status, subject)) = report.trim().split_once('|') else { return false };
-    status.trim() == "Valid" && subject.contains(WINDOWS_PUBLISHER)
+    let mut fields = report.trim().split('|');
+    let (Some(status), Some(subject), Some(thumbprint), None) = (fields.next(), fields.next(), fields.next(), fields.next()) else {
+        return false;
+    };
+    if status.trim() != "Valid" {
+        return false;
+    }
+    if subject.split(',').next().map(str::trim) != Some(WINDOWS_PUBLISHER_CN) {
+        return false;
+    }
+    let thumbprint: String = thumbprint.chars().filter(|c| c.is_ascii_hexdigit()).collect();
+    // A real signature always carries a SHA-1 thumbprint; the pin below additionally
+    // requires it to be the release certificate's.
+    if thumbprint.len() != 40 {
+        return false;
+    }
+    if !WINDOWS_CERT_THUMBPRINT.is_empty() {
+        let expected: String = WINDOWS_CERT_THUMBPRINT.chars().filter(|c| c.is_ascii_hexdigit()).collect();
+        if !thumbprint.eq_ignore_ascii_case(&expected) {
+            return false;
+        }
+    }
+    true
 }
 
 #[cfg(windows)]
@@ -1682,7 +1732,7 @@ pub mod windows {
             "-NoProfile",
             "-NonInteractive",
             "-Command",
-            "$s = Get-AuthenticodeSignature -FilePath $env:BD_VERIFY_PATH; \"$($s.Status)|$($s.SignerCertificate.Subject)\"",
+            "$s = Get-AuthenticodeSignature -FilePath $env:BD_VERIFY_PATH; \"$($s.Status)|$($s.SignerCertificate.Subject)|$($s.SignerCertificate.Thumbprint)\"",
         ]);
         cmd.env(VAR, text);
         let out = crate::process::run_command(cmd, "powershell.exe", std::time::Duration::from_secs(60))
@@ -1777,11 +1827,22 @@ mod tests {
 
     #[test]
     fn only_the_publishers_valid_signature_is_trusted() {
-        assert!(signature_trusted("Valid|CN=BD Tecnologia, O=BD Tecnologia"));
-        assert!(!signature_trusted("Valid|CN=Someone Else, O=Evil"));
-        assert!(!signature_trusted("NotSigned|CN=BD Tecnologia"));
-        assert!(!signature_trusted(""));
+        let good = "Valid|CN=BD Tecnologia, O=BD Tecnologia|A1B2C3D4E5F60718293A4B5C6D7E8F9012345678";
+        assert!(signature_trusted(good));
+        // A substring of the publisher is not the publisher.
+        assert!(!signature_trusted("Valid|CN=Evil BD Tecnologia, O=Evil|A1B2C3D4E5F60718293A4B5C6D7E8F9012345678"));
+        // The CN must be the first RDN: anything in front of it is refused.
+        assert!(!signature_trusted("Valid|OU=Evil, CN=BD Tecnologia|A1B2C3D4E5F60718293A4B5C6D7E8F9012345678"));
+        assert!(!signature_trusted("NotSigned|CN=BD Tecnologia, O=BD Tecnologia|A1B2C3D4E5F60718293A4B5C6D7E8F9012345678"));
+        // A real signature always carries a SHA-1 thumbprint.
+        assert!(!signature_trusted("Valid|CN=BD Tecnologia, O=BD Tecnologia|short"));
+        assert!(!signature_trusted("Valid|CN=BD Tecnologia, O=BD Tecnologia|"));
+        // The two-field report the old check accepted is refused now.
+        assert!(!signature_trusted("Valid|CN=BD Tecnologia, O=BD Tecnologia"));
         assert!(!signature_trusted("Valid"));
+        assert!(!signature_trusted(""));
+        // A trailing field is refused.
+        assert!(!signature_trusted("Valid|CN=BD Tecnologia|A1B2C3D4E5F60718293A4B5C6D7E8F9012345678|extra"));
     }
 
     #[cfg(windows)]
@@ -2580,13 +2641,13 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     mod macos_checks {
-        use bd_launcher_core::{SUITE, version};
+        use bd_launcher_core::version;
 
         use super::macos::{Expect, TEAM_ID, install_dmg, signed_by};
         use super::*;
 
-        fn photocraft() -> &App {
-            SUITE.iter().find(|a| a.id == "photocraft").unwrap()
+        fn photocraft() -> &'static App {
+            crate::testing::app("photocraft")
         }
 
         /// A minimal `PhotoCraft.app` at `dir`, reporting `version`.
@@ -2669,6 +2730,33 @@ mod tests {
             assert!(result.unwrap_err().contains("already exists"));
             assert_eq!(std::fs::read_to_string(plist).unwrap(), unrelated);
             assert_eq!(std::fs::read(placed.join("Contents/MacOS/PhotoCraft")).unwrap(), b"0.5.0");
+        }
+
+        #[test]
+        fn a_link_where_the_bundle_should_be_is_refused() {
+            let dir = tempfile::tempdir().unwrap();
+            // A valid bundle outside the image: without the link check the install would
+            // follow the link and take it (ditto copies the link itself into /Applications).
+            let outside = bundle(dir.path(), "0.6.0");
+            let src = dir.path().join("src-link");
+            std::fs::create_dir(&src).unwrap();
+            std::os::unix::fs::symlink(&outside, src.join("PhotoCraft.app")).unwrap();
+            let dmg = dir.path().join("photocraft-link.dmg");
+            let _one_at_a_time = super::macos::DISK_IMAGES.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let ok = std::process::Command::new("hdiutil")
+                .args(["create", "-quiet", "-format", "UDZO", "-volname", "PhotoCraft", "-srcfolder"])
+                .arg(&src)
+                .arg(&dmg)
+                .status()
+                .unwrap()
+                .success();
+            assert!(ok, "hdiutil create failed");
+            drop(_one_at_a_time);
+            let apps = dir.path().join("Craft Apps");
+            std::fs::create_dir(&apps).unwrap();
+            let result = install_dmg(photocraft(), &dmg, None, Some(&apps), false, &Paths::under(dir.path()), &Expect { team: None, version: None });
+            assert!(result.unwrap_err().contains("doesn't contain the app"));
+            assert!(!apps.join("PhotoCraft.app").exists());
         }
 
         #[test]
