@@ -25,6 +25,11 @@ pub const PROJECT: &str = "bdesk-bdtecnologia";
 /// somewhere else with the `BD_LAUNCHER_CATALOG_URL` environment variable.
 pub const CATALOG_URL: &str = "https://bdesk-bdtecnologia-default-rtdb.firebaseio.com/catalog.json";
 
+/// The Realtime Database host the catalog is read from: this project's own database.
+/// Anything else — notably a database left behind on a previous project — is refused,
+/// so only this project's rules decide what the launcher sees.
+pub const CATALOG_HOST: &str = "bdesk-bdtecnologia-default-rtdb.firebaseio.com";
+
 /// The Firebase Storage bucket the icons, the pictures and the downloads live in. A deployment
 /// can point somewhere else with the `BD_LAUNCHER_STORAGE` environment variable.
 pub const STORAGE_BUCKET: &str = "bdesk-bdtecnologia.firebasestorage.app";
@@ -753,8 +758,10 @@ pub fn storage_host_allowed(url: &str) -> bool {
     cfg!(feature = "local-mirror") && matches!(host, "127.0.0.1" | "localhost" | "[::1]")
 }
 
-/// Whether the catalog may be read from `url`: the Realtime Database (or the developer's own
-/// machine in a `local-mirror` build).
+/// Whether the catalog may be read from `url`: this project's Realtime Database (or the
+/// developer's own machine in a `local-mirror` build). Pinned to the project's own host:
+/// any other database — even another `*.firebaseio.com` one, such as a previous project's —
+/// is refused, so a catalog left behind elsewhere can never steer this build.
 pub fn catalog_host_allowed(url: &str) -> bool {
     let Some(rest) = url.strip_prefix("https://") else {
         return cfg!(feature = "local-mirror")
@@ -762,7 +769,7 @@ pub fn catalog_host_allowed(url: &str) -> bool {
     };
     let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
     let host = authority.split('@').next_back().unwrap_or_default().split(':').next().unwrap_or_default().to_ascii_lowercase();
-    host.ends_with(".firebaseio.com") || host.ends_with(".firebasedatabase.app")
+    host == CATALOG_HOST
 }
 
 /// A path in the storage bucket, turned into an address; an address is left alone.
@@ -903,6 +910,25 @@ mod tests {
             catalog.by_id("x").unwrap().icon_url(&catalog.storage).as_deref(),
             Some("https://storage.googleapis.com/bdesk-bdtecnologia.firebasestorage.app/icons/x.png")
         );
+    }
+
+    #[test]
+    fn only_this_projects_database_is_trusted() {
+        // The compiled-in address reads.
+        assert!(catalog_host_allowed(CATALOG_URL));
+        // The host and the address can't drift apart.
+        let host = CATALOG_URL.strip_prefix("https://").unwrap().split('/').next().unwrap();
+        assert_eq!(host, CATALOG_HOST);
+        // A previous project's database, or anyone else's, does not.
+        assert!(!catalog_host_allowed("https://bd-tecnologia-default-rtdb.firebaseio.com/catalog.json"));
+        assert!(!catalog_host_allowed("https://attacker-default-rtdb.firebaseio.com/catalog.json"));
+        assert!(!catalog_host_allowed("https://bdesk-bdtecnologia-default-rtdb.firebaseio.com.evil.com/catalog.json"));
+        assert!(!catalog_host_allowed("https://evil.com/x"));
+        assert!(!catalog_host_allowed("http://bdesk-bdtecnologia-default-rtdb.firebaseio.com/catalog.json"));
+        assert!(!catalog_host_allowed(""));
+        // Userinfo resolves to the real host; an explicit port is fine.
+        assert!(!catalog_host_allowed("https://bdesk-bdtecnologia-default-rtdb.firebaseio.com@evil.com/catalog.json"));
+        assert!(catalog_host_allowed("https://bdesk-bdtecnologia-default-rtdb.firebaseio.com:443/catalog.json"));
     }
 
     #[test]

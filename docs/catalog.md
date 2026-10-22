@@ -28,8 +28,11 @@ its next check.
 | The icons, the app's pictures | Storage, `icons/` and `shots/` | `cargo xtask publish` |
 | The installers | Storage, `apps/<id>/<version>/` | `cargo xtask publish` |
 
-The addresses are compiled in (`catalog::CATALOG_URL`, `catalog::STORAGE_BUCKET`) and can be
-pointed elsewhere with `BD_LAUNCHER_CATALOG_URL` and `BD_LAUNCHER_STORAGE`.
+The addresses are compiled in (`catalog::CATALOG_URL`, `catalog::STORAGE_BUCKET`). The
+storage side can point at another bucket on the storage service with `BD_LAUNCHER_STORAGE`;
+the catalog side only trusts this project's own database (`catalog::CATALOG_HOST`) — a
+`BD_LAUNCHER_CATALOG_URL` naming any other host is ignored, so nothing that can set the
+environment can steer a release build at another catalog.
 
 ## The document
 
