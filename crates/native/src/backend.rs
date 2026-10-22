@@ -169,26 +169,7 @@ impl NativeBackend {
         let options = self.options();
         let apps = self.shared.catalog().apps;
         std::thread::spawn(move || {
-            // Leftovers from interrupted installs or older versions of the launcher. A paused
-            // download stays a month; a finished one kept after a failed install, a week.
-            http::clean_downloads(&paths.downloads(), Duration::from_secs(30 * 86_400), Duration::from_secs(7 * 86_400));
-            let snapshot = crate::detect::Snapshot::take(&apps);
-            let manifest = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner).clone();
-            for app in &apps {
-                let found = crate::detect::detect(app, &manifest, &snapshot);
-                {
-                    let mut map = shared.installed.lock().unwrap_or_else(PoisonError::into_inner);
-                    match &found {
-                        Some(i) => map.insert(app.id.clone(), i.clone()),
-                        None => map.remove(&app.id),
-                    };
-                }
-                shared.emit(Event::Detected { app: app.id.clone(), installed: found });
-            }
-            // Downloads paused (or cut off by quitting) in an earlier run.
-            for app in &apps {
-                report_partial(app, &shared, &paths, platform, &options);
-            }
+            detect_apps(&shared, &paths, platform, &options, &apps);
             shared.detecting.store(false, Ordering::SeqCst);
         });
     }
@@ -208,7 +189,8 @@ impl NativeBackend {
         let shared = self.shared.clone();
         let paths = self.paths.clone();
         let platform = self.platform;
-        let pre = self.options().prereleases;
+        let options = self.options();
+        let pre = options.prereleases;
         let source = self.source.clone();
         let catalog_store = self.catalog.clone();
         std::thread::spawn(move || {
@@ -223,6 +205,11 @@ impl NativeBackend {
             };
             let storage = catalog.storage.clone();
             *shared.catalog.lock().unwrap_or_else(PoisonError::into_inner) = catalog.clone();
+            // The list may name apps the machine has: look again now that it is known.
+            if !shared.detecting.swap(true, Ordering::SeqCst) {
+                detect_apps(&shared, &paths, platform, &options, &catalog.apps);
+                shared.detecting.store(false, Ordering::SeqCst);
+            }
             shared.emit(Event::Catalog(catalog.clone()));
             shared.emit(Event::Notices { announcements: catalog.announcements.clone(), alerts: catalog.alerts.clone() });
             // The launcher's own update, when the catalog carries one.
@@ -633,6 +620,31 @@ fn planned_download(
     let record = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner).apps.get(&app.id).cloned();
     let (asset, _) = planned_asset(app, &release, platform?, options, existing.as_ref(), record.as_ref())?;
     bd_launcher_core::release::valid_file_name(&asset.name).then(|| (install::download_path(paths, &asset), asset.size))
+}
+
+/// Looks at the machine for the catalog's apps: which are installed, and what a download left
+/// behind in an earlier run.
+fn detect_apps(shared: &Arc<Shared>, paths: &Paths, platform: Option<Platform>, options: &BackendOptions, apps: &[App]) {
+    // Leftovers from interrupted installs or older versions of the launcher. A paused download
+    // stays a month; a finished one kept after a failed install, a week.
+    http::clean_downloads(&paths.downloads(), Duration::from_secs(30 * 86_400), Duration::from_secs(7 * 86_400));
+    let snapshot = crate::detect::Snapshot::take(apps);
+    let manifest = shared.manifest.lock().unwrap_or_else(PoisonError::into_inner).clone();
+    for app in apps {
+        let found = crate::detect::detect(app, &manifest, &snapshot);
+        {
+            let mut map = shared.installed.lock().unwrap_or_else(PoisonError::into_inner);
+            match &found {
+                Some(i) => map.insert(app.id.clone(), i.clone()),
+                None => map.remove(&app.id),
+            };
+        }
+        shared.emit(Event::Detected { app: app.id.clone(), installed: found });
+    }
+    // Downloads paused (or cut off by quitting) in an earlier run.
+    for app in apps {
+        report_partial(app, shared, paths, platform, options);
+    }
 }
 
 /// The catalog, read from Firebase. The copy on disk stands in when Firebase can't be reached;

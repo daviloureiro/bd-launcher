@@ -672,16 +672,25 @@ fn absolute(path: &str, storage: &str) -> Option<String> {
     if path.is_empty() {
         return None;
     }
-    if path.starts_with("https://") {
-        return release::safe_download(path).then(|| path.to_string());
-    }
-    let base = storage.trim().trim_end_matches('/');
-    if base.is_empty() {
-        return None;
-    }
-    let base = if base.starts_with("https://") { base.to_string() } else { format!("https://storage.googleapis.com/{base}") };
-    let path = path.trim_start_matches('/');
-    Some(format!("{base}/{path}"))
+    let url = if path.starts_with("https://") || path.starts_with("http://") {
+        path.to_string()
+    } else {
+        let base = storage.trim().trim_end_matches('/');
+        if base.is_empty() {
+            return None;
+        }
+        // A base that is already an address is used as it is; a bare bucket name gets the
+        // storage service's address.
+        let base = if base.starts_with("https://") || base.starts_with("http://") {
+            base.to_string()
+        } else {
+            format!("https://storage.googleapis.com/{base}")
+        };
+        format!("{base}/{}", path.trim_start_matches('/'))
+    };
+    // Whatever it came out as, it has to be an address a download may come from: `https`
+    // anywhere, or `http` on the developer's own machine in a local-mirror build.
+    release::safe_download(&url).then_some(url)
 }
 
 #[cfg(test)]
@@ -763,6 +772,37 @@ mod tests {
         let release = catalog.by_id("x").unwrap().release(&catalog.storage).unwrap();
         assert_eq!(release.assets.len(), 1);
         assert!(release.assets[0].url.starts_with("https://storage.googleapis.com/bucket/apps/x/"));
+    }
+
+    #[test]
+    fn a_storage_base_that_is_an_address_is_used_as_it_is() {
+        // A local mirror (the developer's own machine) is an address, not a bucket name: it
+        // must not be turned into a storage.googleapis.com address.
+        let json = r#"{"storage": "http://127.0.0.1:8787/", "apps": [
+            {"id": "x", "icon": "icons/x.png", "release": {"version": "1.0.0", "base": "apps/x/1.0.0/",
+             "assets": [{"name": "x-1.0.0-windows-x64.msi", "size": 1, "sha256": "8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1"}]}}]}"#;
+        let catalog = Catalog::parse(json).unwrap();
+        let app = catalog.by_id("x").unwrap();
+        // The loopback address is only trusted in a build with the `local-mirror` feature.
+        let expected = if cfg!(feature = "local-mirror") { Some("http://127.0.0.1:8787/icons/x.png".to_string()) } else { None };
+        assert_eq!(app.icon_url(&catalog.storage), expected);
+        let release = app.release(&catalog.storage);
+        if cfg!(feature = "local-mirror") {
+            let release = release.expect("the release is kept in a local-mirror build");
+            assert_eq!(release.assets[0].url, "http://127.0.0.1:8787/apps/x/1.0.0/x-1.0.0-windows-x64.msi");
+        } else {
+            assert!(release.is_none(), "a plain http address is not trusted outside a local-mirror build");
+        }
+    }
+
+    #[test]
+    fn a_bucket_name_gets_the_storage_service_address() {
+        let json = r#"{"storage": "bd-tecnologia.firebasestorage.app", "apps": [{"id": "x", "icon": "icons/x.png"}]}"#;
+        let catalog = Catalog::parse(json).unwrap();
+        assert_eq!(
+            catalog.by_id("x").unwrap().icon_url(&catalog.storage).as_deref(),
+            Some("https://storage.googleapis.com/bd-tecnologia.firebasestorage.app/icons/x.png")
+        );
     }
 
     #[test]

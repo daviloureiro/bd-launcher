@@ -17,7 +17,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Every Craft App: (id = folder name, display name). Keep in step with `catalog::SUITE`.
+/// The apps `cargo xtask local sync` builds: (id = folder name, display name, repository).
+///
+/// The list is only about the **builds**: the catalog the mirror serves is built from whatever
+/// is in the mirror's folders, so any app can be published from a local build. Add an app here
+/// to have it cloned and built; the name is what the mirror's catalog calls it.
 const APPS: &[(&str, &str)] = &[
     ("photocraft", "PhotoCraft"),
     ("vectorcraft", "VectorCraft"),
@@ -423,12 +427,14 @@ fn sha256(path: &Path) -> Result<String, String> {
 
 // ---- catalog -----------------------------------------------------------------------------------
 
-/// A catalog for the newest complete build of every app, in the shape the launcher reads.
+/// A catalog for the newest complete build of every app in the mirror, in the shape the
+/// launcher reads. The apps are the mirror's own folders, so it works for any app, not only for
+/// a list written down here.
 fn catalog(mirror: &Path, base: &str) -> String {
     let now = unix_now();
     let mut apps = String::new();
-    for (id, name) in APPS {
-        let app_dir = mirror.join(id);
+    for (id, name) in mirror_apps(mirror) {
+        let app_dir = mirror.join(&id);
         let Some(version) = latest_version(&app_dir) else { continue };
         let dir = app_dir.join(&version);
         let Ok(files) = asset_files(&dir) else { continue };
@@ -448,9 +454,9 @@ fn catalog(mirror: &Path, base: &str) -> String {
         let _ = write!(
             apps,
             r##"{}:{{"id":{},"name":{},"tagline":{},"color":"#1876ff","icon":{},"release":{{"version":{},"tag":{},"published_at":{published},"notes":{},"base":{},"assets":[{}]}}}}"##,
-            json_str(id),
-            json_str(id),
-            json_str(name),
+            json_str(&id),
+            json_str(&id),
+            json_str(&name),
             json_str("A local build"),
             json_str(&format!("icons/{id}.png")),
             json_str(&version),
@@ -461,6 +467,25 @@ fn catalog(mirror: &Path, base: &str) -> String {
         );
     }
     format!(r#"{{"storage":{},"apps":{{{apps}}}}}"#, json_str(base))
+}
+
+/// The apps in the mirror: a folder each, with the display name the list gives them.
+fn mirror_apps(mirror: &Path) -> Vec<(String, String)> {
+    let Ok(entries) = std::fs::read_dir(mirror) else { return Vec::new() };
+    let mut apps: Vec<(String, String)> = entries
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let path = entry.path();
+            if !path.is_dir() {
+                return None;
+            }
+            let id = path.file_name()?.to_str()?.to_string();
+            let name = APPS.iter().find(|(known, _)| *known == id).map_or_else(|| id.clone(), |(_, name)| (*name).to_string());
+            Some((id, name))
+        })
+        .collect();
+    apps.sort_by(|a, b| a.0.cmp(&b.0));
+    apps
 }
 
 fn json_str(s: &str) -> String {

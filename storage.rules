@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// The bucket is public: the launcher downloads the apps, their icons and their pictures with a
+// plain https request. Nothing is written from a client: the publishing step uses the Firebase
+// CLI or a service account, which bypasses these rules.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /apps/{allPaths=**} { allow read: if true; allow write: if false; }
+    match /icons/{allPaths=**} { allow read: if true; allow write: if false; }
+    match /shots/{allPaths=**} { allow read: if true; allow write: if false; }
+    match /{allPaths=**} { allow read: if true; allow write: if false; }
+  }
+}

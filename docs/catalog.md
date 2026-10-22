@@ -161,6 +161,51 @@ nothing.
 Every copy of BD Launcher shows the new version on its next check. There is no release to cut
 and no binary to ship.
 
+### The app's own fields
+
+The command **merges**: the name, the colour, the icon and the page an app already has in the
+catalog stay as they are, and only its release changes. So the second time you publish an app,
+the command is the same one-liner.
+
+The first time, the catalog has no entry for the app yet, so the app needs its own fields. Give
+them to the command:
+
+```sh
+cargo xtask publish --app meuapp --version 1.0.0 --dir dist/1.0.0 \
+    --name "Meu App" --tagline "O que o app faz" --color "#1876ff" --icon assets/icon.png
+```
+
+or keep them in a file beside the release and point at it:
+
+```sh
+cargo xtask publish --app meuapp --version 1.1.0 --dir dist/1.1.0 --app-file app.json
+```
+
+```json
+{
+  "name": "Meu App",
+  "tagline": "O que o app faz",
+  "color": "#1876ff",
+  "ink_light": "#0b51b8",
+  "ink_dark": "#7ab5ff",
+  "website": "https://bdtecnologia.com.br/apps/meuapp",
+  "package_id": "com.bdtecnologia.meuapp",
+  "categories": "Utility;",
+  "details": { "headline": "Uma linha sob o nome." }
+}
+```
+
+### Publishing the launcher's own release
+
+The launcher updates itself from the catalog too, so its release is published the same way:
+
+```sh
+cargo xtask publish --launcher --version 0.7.0 --dir dist/0.7.0
+```
+
+It goes to `catalog/launcher` in the database, and the launcher picks it up like any other
+update.
+
 ### Publishing from CI
 
 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) is a template: copy it into
@@ -173,10 +218,17 @@ secrets are needed in that repository's settings:
 
 ## Setting the project up
 
+The rules are in this repository, ready to deploy: [`database.rules.json`](../database.rules.json)
+and [`storage.rules`](../storage.rules), with [`firebase.json`](../firebase.json) pointing at
+them. So the whole job is:
+
 ```sh
 firebase use bd-tecnologia
-firebase init database storage
+firebase deploy --only database,storage
 ```
+
+The project itself has to be created in the [Firebase console](https://console.firebase.google.com)
+(Storage asks for the Blaze plan, which is free until the bucket's traffic grows).
 
 ### The database's rules
 
