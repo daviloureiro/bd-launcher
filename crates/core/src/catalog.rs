@@ -65,22 +65,23 @@ pub fn launcher() -> &'static App {
 pub const PACKAGE_PREFIX: &str = "com.bdtecnologia";
 
 /// BD's website.
-pub const WEBSITE_URL: &str = "https://bdtecnologia.com.br";
+pub const WEBSITE_URL: &str = "https://bdtecnolog.ia.br";
 /// BD on GitHub: where the apps' source lives.
 pub const GITHUB_URL: &str = "https://github.com/bd-tecnologia";
 
 /// BD's social accounts: (service, URL). Shown as small icons in the footer and in Settings,
 /// next to the website and the GitHub link.
 ///
-/// **Empty by default**: add BD's accounts here (one row each) and they appear everywhere the
-/// launcher links out. The names are the ones [`icons::social`](crate::icons) knows: `X`,
-/// `Instagram`, `LinkedIn`, `YouTube`, `TikTok`.
-pub const SOCIAL: [(&str, &str); 0] = [];
+/// The list the catalog names comes first; this one is the fallback. The names are the ones
+/// [`icons::social`](crate::icons) knows: `X`, `Instagram`, `LinkedIn`, `YouTube`, `TikTok`,
+/// `WhatsApp`.
+pub const SOCIAL: [(&str, &str); 3] =
+    [("WhatsApp", WHATSAPP_URL), ("Instagram", "https://instagram.com/bdtecnolog.ia"), ("LinkedIn", "https://linkedin.com")];
 
-/// The BD community on Discord.
-pub const DISCORD_URL: &str = "https://discord.gg/bd";
-/// Deep link into the Discord application for BD's server invite.
-pub const DISCORD_APP_URL: &str = "discord://-/invite/bd";
+/// BD's WhatsApp: the number a message goes to, with the text already written.
+pub const WHATSAPP_URL: &str = "https://wa.me/5511963080423";
+/// The same number, as it is written for a person to read.
+pub const PHONE: &str = "(11) 96308-0423";
 
 /// The brand blue, when the catalog doesn't say: the colour of the BD mark.
 pub const BRAND_BLUE: [u8; 3] = [0x18, 0x76, 0xff];

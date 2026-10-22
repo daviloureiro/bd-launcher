@@ -1,7 +1,7 @@
 Social service icons
 ====================
 
-`x.svg`, `youtube.svg`, `tiktok.svg`, `instagram.svg` and `discord.svg` are from [Simple Icons](https://simpleicons.org/)
+`x.svg`, `youtube.svg`, `tiktok.svg`, `instagram.svg` and `whatsapp.svg` are from [Simple Icons](https://simpleicons.org/)
 16.34.0 (`https://cdn.jsdelivr.net/npm/simple-icons@16.34.0/icons/<name>.svg`), released under
 [CC0 1.0](https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md). The only change is
 `fill="#ffffff"` on the root element, so the app can tint them to the theme.
@@ -21,4 +21,5 @@ from `0 0 448 512` to a centred square `-32 0 512 512`; the artwork is untouched
 BD's website.
 
 The logos themselves are trademarks of their owners (X Corp., Google LLC, TikTok / ByteDance Ltd.,
-Meta Platforms, Inc., Discord Inc. and LinkedIn Corporation). They are used only to link to BD's own accounts on those services.
+Meta Platforms, Inc., WhatsApp LLC and LinkedIn Corporation). They are used only to link to BD's own
+accounts on those services.

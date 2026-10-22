@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://bdtecnologia.com.br/">
+  <a href="https://bdtecnolog.ia.br/">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/brand/bd-logo-white.svg">
       <img alt="BD" src="docs/brand/bd-logo.svg" width="200">
@@ -26,19 +26,19 @@
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/bd"><img alt="Join the BD community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
+  <a href="https://wa.me/5511963080423"><img alt="Talk to BD on WhatsApp" src="https://img.shields.io/badge/WhatsApp-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" height="40"></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/bd-tecnologia/bd-launcher/releases/latest"><b>Download BD Launcher</b></a> ·
-  <a href="https://bdtecnologia.com.br/">BD</a> ·
-  <a href="https://bdtecnologia.com.br/apps">The BD Apps</a>
+  <a href="https://bdtecnolog.ia.br/">BD</a> ·
+  <a href="https://bdtecnolog.ia.br/apps">The BD Apps</a>
 </p>
 
 > [!NOTE]
 > **BD is a community of artists from all walks of life.** Painters, photographers,
 > filmmakers, illustrators, designers, animators, hobbyists, and people who picked up a pencil
-> last week. If you make things, you're one of us. **[Come say hi on Discord](https://discord.gg/bd).**
+> last week. If you make things, you're one of us. **[Come say hi on WhatsApp](https://wa.me/5511963080423).**
 
 <p align="center">
   <a href="#what-it-does">What it does</a> ·
@@ -46,7 +46,7 @@
   <a href="#downloads">Downloads</a> ·
   <a href="#build-from-source">Build from source</a> ·
   <a href="#the-craft-app-suite">BD Apps</a> ·
-  <a href="https://discord.gg/bd">Discord</a>
+  <a href="https://wa.me/5511963080423">WhatsApp</a>
 </p>
 
 <p align="center">
@@ -257,12 +257,12 @@ New contributors and AI agents: start with [`AGENTS.md`](AGENTS.md). Release pac
 > [!IMPORTANT]
 > **Status:** BD Launcher is new and in early alpha. Expect rough edges, and please file
 > issues (include your OS, which app you were installing and the launcher's log file) or tell us on
-> [Discord](https://discord.gg/bd).
+> [WhatsApp](https://wa.me/5511963080423).
 
 ## The BD Apps
 
 BD Launcher installs the apps published to the **BD catalog**: the tools from the
-[BD](https://bdtecnologia.com.br/) team, each written from scratch in Rust and each able to
+[BD](https://bdtecnolog.ia.br/) team, each written from scratch in Rust and each able to
 stand on its own — and any other app you publish there.
 
 The list is not in this readme because it is not in the launcher either: it is the **catalog**, one
@@ -271,19 +271,19 @@ shipping a new version is a write to that document.
 
 | | App | What it's for | Code | Learn more |
 |:-:|---|---|---|---|
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/photocraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.photocraft.png" alt="" width="32" height="32"> | **PhotoCraft** | Image editing: layers, masks, type and real PSD files | [GitHub](https://github.com/bd-tecnologia/photocraft) | [Website](https://bdtecnologia.com.br/apps/photocraft) |
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/vectorcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.vectorcraft.png" alt="" width="32" height="32"> | **VectorCraft** | Vector illustration | [GitHub](https://github.com/bd-tecnologia/vectorcraft) | [Website](https://bdtecnologia.com.br/apps/vectorcraft) |
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/filmcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.filmcraft.png" alt="" width="32" height="32"> | **FilmCraft** | Video editing, color and sound | [GitHub](https://github.com/bd-tecnologia/filmcraft) | [Website](https://bdtecnologia.com.br/apps/filmcraft) |
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/lightcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.lightcraft.png" alt="" width="32" height="32"> | **LightCraft** | Photo library and raw development | [GitHub](https://github.com/bd-tecnologia/lightcraft) | [Website](https://bdtecnologia.com.br/apps/lightcraft) |
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/pdfcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.pdfcraft.png" alt="" width="32" height="32"> | **PdfCraft** | Reading, organizing and protecting PDFs | [GitHub](https://github.com/bd-tecnologia/pdfcraft) | [Website](https://bdtecnologia.com.br/apps/pdfcraft) |
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/effectcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.effectcraft.png" alt="" width="32" height="32"> | **EffectCraft** | Motion graphics and visual effects | [GitHub](https://github.com/bd-tecnologia/effectcraft) | [Website](https://bdtecnologia.com.br/apps/effectcraft) |
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/designcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.designcraft.png" alt="" width="32" height="32"> | **DesignCraft** | Page layout and publishing | [GitHub](https://github.com/bd-tecnologia/designcraft) | [Website](https://bdtecnologia.com.br/apps/designcraft) |
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/figcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.figcraft.png" alt="" width="32" height="32"> | **FigCraft** | Interface design and prototyping | [GitHub](https://github.com/bd-tecnologia/figcraft) | [Website](https://bdtecnologia.com.br/apps/figcraft) |
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/wordcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.wordcraft.png" alt="" width="32" height="32"> | **WordCraft** | Word processing and documents | [GitHub](https://github.com/bd-tecnologia/wordcraft) | [Website](https://bdtecnologia.com.br/apps/wordcraft) |
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/soundcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.soundcraft.png" alt="" width="32" height="32"> | **SoundCraft** | Audio recording and editing | [GitHub](https://github.com/bd-tecnologia/soundcraft) | [Website](https://bdtecnologia.com.br/apps/soundcraft) |
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/deckcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.deckcraft.png" alt="" width="32" height="32"> | **DeckCraft** | Presentations and slide decks | [GitHub](https://github.com/bd-tecnologia/deckcraft) | [Website](https://bdtecnologia.com.br/apps/deckcraft) |
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/cadcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.cadcraft.png" alt="" width="32" height="32"> | **CADCraft** | Computer-aided design | [GitHub](https://github.com/bd-tecnologia/cadcraft) | [Website](https://bdtecnologia.com.br/apps/cadcraft) |
-| <img src="https://raw.githubusercontent.com/bd-tecnologia/gridcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.gridcraft.png" alt="" width="32" height="32"> | **GridCraft** | Spreadsheets and data | [GitHub](https://github.com/bd-tecnologia/gridcraft) | [Website](https://bdtecnologia.com.br/apps/gridcraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/photocraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.photocraft.png" alt="" width="32" height="32"> | **PhotoCraft** | Image editing: layers, masks, type and real PSD files | [GitHub](https://github.com/bd-tecnologia/photocraft) | [Website](https://bdtecnolog.ia.br/apps/photocraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/vectorcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.vectorcraft.png" alt="" width="32" height="32"> | **VectorCraft** | Vector illustration | [GitHub](https://github.com/bd-tecnologia/vectorcraft) | [Website](https://bdtecnolog.ia.br/apps/vectorcraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/filmcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.filmcraft.png" alt="" width="32" height="32"> | **FilmCraft** | Video editing, color and sound | [GitHub](https://github.com/bd-tecnologia/filmcraft) | [Website](https://bdtecnolog.ia.br/apps/filmcraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/lightcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.lightcraft.png" alt="" width="32" height="32"> | **LightCraft** | Photo library and raw development | [GitHub](https://github.com/bd-tecnologia/lightcraft) | [Website](https://bdtecnolog.ia.br/apps/lightcraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/pdfcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.pdfcraft.png" alt="" width="32" height="32"> | **PdfCraft** | Reading, organizing and protecting PDFs | [GitHub](https://github.com/bd-tecnologia/pdfcraft) | [Website](https://bdtecnolog.ia.br/apps/pdfcraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/effectcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.effectcraft.png" alt="" width="32" height="32"> | **EffectCraft** | Motion graphics and visual effects | [GitHub](https://github.com/bd-tecnologia/effectcraft) | [Website](https://bdtecnolog.ia.br/apps/effectcraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/designcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.designcraft.png" alt="" width="32" height="32"> | **DesignCraft** | Page layout and publishing | [GitHub](https://github.com/bd-tecnologia/designcraft) | [Website](https://bdtecnolog.ia.br/apps/designcraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/figcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.figcraft.png" alt="" width="32" height="32"> | **FigCraft** | Interface design and prototyping | [GitHub](https://github.com/bd-tecnologia/figcraft) | [Website](https://bdtecnolog.ia.br/apps/figcraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/wordcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.wordcraft.png" alt="" width="32" height="32"> | **WordCraft** | Word processing and documents | [GitHub](https://github.com/bd-tecnologia/wordcraft) | [Website](https://bdtecnolog.ia.br/apps/wordcraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/soundcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.soundcraft.png" alt="" width="32" height="32"> | **SoundCraft** | Audio recording and editing | [GitHub](https://github.com/bd-tecnologia/soundcraft) | [Website](https://bdtecnolog.ia.br/apps/soundcraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/deckcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.deckcraft.png" alt="" width="32" height="32"> | **DeckCraft** | Presentations and slide decks | [GitHub](https://github.com/bd-tecnologia/deckcraft) | [Website](https://bdtecnolog.ia.br/apps/deckcraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/cadcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.cadcraft.png" alt="" width="32" height="32"> | **CADCraft** | Computer-aided design | [GitHub](https://github.com/bd-tecnologia/cadcraft) | [Website](https://bdtecnolog.ia.br/apps/cadcraft) |
+| <img src="https://raw.githubusercontent.com/bd-tecnologia/gridcraft/main/assets/app-icon/hicolor/64x64/apps/com.bdtecnologia.gridcraft.png" alt="" width="32" height="32"> | **GridCraft** | Spreadsheets and data | [GitHub](https://github.com/bd-tecnologia/gridcraft) | [Website](https://bdtecnolog.ia.br/apps/gridcraft) |
 
 ### Publishing an app
 
@@ -298,27 +298,27 @@ launcher to rebuild and no release to cut.
 The catalog's shape, the Firebase rules and a workflow that does the same from CI are in
 [`docs/catalog.md`](docs/catalog.md).
 
-And [**BD**](https://bdtecnologia.com.br/) itself, our AI image and video studio for artists who want real control.
+And [**BD**](https://bdtecnolog.ia.br/) itself, our AI image and video studio for artists who want real control.
 
 <br>
 
 <p align="center">
-  <a href="https://discord.gg/bd"><img alt="Join the BD community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
+  <a href="https://wa.me/5511963080423"><img alt="Talk to BD on WhatsApp" src="https://img.shields.io/badge/WhatsApp-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" height="40"></a>
 </p>
 
 <h3 align="center">Come make things with us</h3>
 
 <p align="center">
-  Our Discord is where artists of every kind hang out: people who paint, shoot, draw, cut film,
+  Our WhatsApp is where artists of every kind hang out: people who paint, shoot, draw, cut film,
   set type, and people still figuring out what they like to make. Share what you're working on,
   ask for help, tell us what's broken, or tell us what you wish these tools could do.
   Whatever your medium and however long you've been at it, you're welcome here.
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/bd"><b>discord.gg/bd</b></a> ·
-  <a href="https://bdtecnologia.com.br/">bdtecnologia.com.br</a> ·
-  <a href="https://bdtecnologia.com.br/apps">The BD Apps</a> ·
+  <a href="https://wa.me/5511963080423"><b>(11) 96308-0423</b></a> ·
+  <a href="https://bdtecnolog.ia.br/">bdtecnolog.ia.br</a> ·
+  <a href="https://bdtecnolog.ia.br/apps">The BD Apps</a> ·
   <a href="https://github.com/bd-tecnologia/bd-launcher">BD Launcher</a>
 </p>
 
@@ -363,6 +363,6 @@ part of this repository and BD Launcher, under [`docs/brand/LICENSE-brand.txt`](
 Forks and modified versions must remove them.
 
 <p align="center">
-  <a href="https://bdtecnologia.com.br/"><img alt="BD" src="docs/brand/bd-mark.svg" width="96"></a><br>
-  <sub>Made by the <a href="https://bdtecnologia.com.br/">BD</a> team and community.</sub>
+  <a href="https://bdtecnolog.ia.br/"><img alt="BD" src="docs/brand/bd-mark.svg" width="96"></a><br>
+  <sub>Made by the <a href="https://bdtecnolog.ia.br/">BD</a> team and community.</sub>
 </p>

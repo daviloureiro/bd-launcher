@@ -14,7 +14,7 @@
 # Left in English on purpose: product name "BD Launcher" (and its "Launcher" tag), suite
 # name "BD Apps", app names (PhotoCraft, LightCraft, FilmCraft,
 # DesignCraft, VectorCraft, PdfCraft, EffectCraft, WordCraft, DeckCraft, GridCraft, CADCraft,
-# SoundCraft, FigCraft), "GitHub", "Discord", "Finder", "makers".
+# SoundCraft, FigCraft), "GitHub", "WhatsApp", "Finder", "makers".
 # Trailing "…" (U+2026) must be preserved. Placeholders must appear in the translation:
 # {ago}, {a}, {b}, {count}, {date}, {day}, {done}, {e}, {f}, {installed}, {latest}, {min},
 # {month}, {name}, {n}, {os}, {platform}, {sources}, {total}, {version}, {v}, {year}.
@@ -40,7 +40,6 @@
 	Installed version	Versión instalada
 	Latest version	Última versión
 	Newest release	Publicación más reciente
-	Discord	Discord
 	GitHub	GitHub
 	Website	Sitio web
 	Classic apps	Aplicaciones clásicas
@@ -125,7 +124,6 @@
 	Apps you hid	Aplicaciones que ocultaste
 	Checked {ago} · using {sources}	Comprobado {ago} · con {sources}
 	{a} and {b}	{a} y {b}
-	Join the Discord	Únete al Discord
 	Learn more	Más información
 	Minimize	Minimizar
 	Maximize	Maximizar
@@ -187,7 +185,6 @@ month	Dec	dic.
 	Installing for {platform}	Instalación para {platform}
 	Downloads for {platform}	Descargas para {platform}
 	No downloads for this system	No hay descargas para este sistema
-	Join the BD community on Discord	Únete a la comunidad de BD en Discord
 	BD on {name}	BD en {name}
 	Couldn't open {name}: {e}	No se pudo abrir {name}: {e}
 	Download cancelled	Descarga cancelada
@@ -314,7 +311,6 @@ filter	Installed	Instaladas
 @id	sort.installed	Versión instalada
 @id	sort.latest	Última versión
 @id	sort.released	Publicación más reciente
-@id	help.discord	Discord
 @id	help.github	GitHub
 @id	help.website	Sitio web
 @id	update.check	Buscar actualizaciones
@@ -328,9 +324,8 @@ filter	Installed	Instaladas
 @id	appearance.theme	Apariencia
 	Show BD Launcher	Mostrar BD Launcher
 	Check for Updates	Buscar actualizaciones
-	Visit bdtecnologia.com.br	Visitar bdtecnologia.com.br
+	Visit bdtecnolog.ia.br	Visitar bdtecnolog.ia.br
 	BD on GitHub	BD en GitHub
-	Join the BD Discord	Únete al Discord de BD
 @plural	BD Launcher · {n} update available|BD Launcher · {n} updates available	BD Launcher · {n} actualización disponible|BD Launcher · {n} actualizaciones disponibles
 	Install folder	Carpeta de instalación
 	Default install folder	Carpeta de instalación predeterminada
@@ -364,3 +359,5 @@ column	Version	Versión
 @msg	the catalog isn't readable	el catálogo no se puede leer
 @msg	secure connections aren't available	no hay conexiones seguras disponibles
 @msg	Firebase is asking us to slow down	Firebase nos pide ir más despacio
+	WhatsApp	WhatsApp
+	Talk to BD on WhatsApp	Habla con BD por WhatsApp

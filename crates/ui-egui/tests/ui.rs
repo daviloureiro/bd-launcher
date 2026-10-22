@@ -236,7 +236,7 @@ fn harness_with(
     manage: bool,
     scale: f32,
 ) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    harness_full(events, view, theme, manage, scale, bd_launcher_ui_egui::TitleBar::Native, Rc::default(), None, None)
+    harness_full(events, view, theme, manage, scale, bd_launcher_ui_egui::TitleBar::Native, Rc::default(), None)
 }
 
 /// Like `harness_with`, with the details pictures answered as `pictures` says (changeable during the test).
@@ -248,7 +248,7 @@ fn harness_pictures(
     scale: f32,
     pictures: Rc<Cell<Pictures>>,
 ) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    harness_full(events, view, theme, manage, scale, bd_launcher_ui_egui::TitleBar::Native, pictures, None, None)
+    harness_full(events, view, theme, manage, scale, bd_launcher_ui_egui::TitleBar::Native, pictures, None)
 }
 
 fn harness_with_title_bar(
@@ -259,11 +259,7 @@ fn harness_with_title_bar(
     scale: f32,
     bar: bd_launcher_ui_egui::TitleBar,
 ) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    harness_full(events, view, theme, manage, scale, bar, Rc::default(), None, None)
-}
-
-fn harness_with_discord(discord_url: Option<&'static str>) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    harness_full(events(), ViewMode::Grid, egui::Theme::Dark, true, 1.0, bd_launcher_ui_egui::TitleBar::Native, Rc::default(), None, discord_url)
+    harness_full(events, view, theme, manage, scale, bar, Rc::default(), None)
 }
 
 #[allow(clippy::too_many_arguments)] // Test fixture inputs vary independently across existing cases.
@@ -276,15 +272,11 @@ fn harness_full(
     bar: bd_launcher_ui_egui::TitleBar,
     pictures: Rc<Cell<Pictures>>,
     platform: Option<Platform>,
-    discord_url: Option<&'static str>,
 ) -> (Harness<'static, Option<LauncherUi>>, Rc<RefCell<Vec<Command>>>) {
-    struct HeaderHost(bd_launcher_ui_egui::TitleBar, Option<&'static str>);
+    struct HeaderHost(bd_launcher_ui_egui::TitleBar);
     impl Host for HeaderHost {
         fn title_bar(&self) -> bd_launcher_ui_egui::TitleBar {
             self.0
-        }
-        fn discord_url(&self) -> &'static str {
-            self.1.unwrap_or(bd_launcher_core::catalog::DISCORD_URL)
         }
     }
     // Integration tests compile without cfg!(test), so system_lang() picks up the
@@ -314,8 +306,8 @@ fn harness_full(
                 *state = Some(LauncherUi::new(ui.ctx(), b, s));
             }
             if let Some(l) = state.as_mut() {
-                l.logic(&ui.ctx().clone(), &mut HeaderHost(bar, discord_url));
-                l.ui(ui, &mut HeaderHost(bar, discord_url));
+                l.logic(&ui.ctx().clone(), &mut HeaderHost(bar));
+                l.ui(ui, &mut HeaderHost(bar));
             }
         },
         None,
@@ -463,7 +455,6 @@ fn windows_package_choice_can_select_portable_and_configures_the_backend() {
         bd_launcher_ui_egui::TitleBar::Native,
         Rc::default(),
         Some(Platform { os: Os::Windows, arch: Arch::X64 }),
-        None,
     );
     h.run_steps(8);
     h.get_by_label("Settings").click();
@@ -549,8 +540,8 @@ fn grid_shows_every_status_and_installs_on_click() {
     assert!(updated.iter().all(|l| l.starts_with("Last updated: Oct ") && l.ends_with(", 2026")), "{updated:?}");
     // The window has no title bar of its own here (the web build, and the tests).
     assert!(h.query_by_label("Close").is_none());
-    assert!(h.query_all_by_label_contains("Discord").count() >= 1); // the footer icon (the header has none)
-    assert!(h.query_by_label("Join the BD community on Discord").is_none(), "no Discord link in the header");
+    assert!(h.query_all_by_label_contains("WhatsApp").count() >= 1); // the footer icon (the header has none)
+    assert!(h.query_by_label("Talk to BD on WhatsApp").is_none(), "no WhatsApp link in the header");
     assert!(h.query_all_by_label("Coming soon").count() >= 1);
     h.get_by_label_contains("48 MB of 131 MB");
     h.get_by_label("Update all (2)").click();
@@ -845,7 +836,7 @@ fn every_table_column_sorts_both_ways() {
 }
 
 #[test]
-fn settings_link_to_discord() {
+fn settings_link_to_whatsapp() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
     h.get_by_label("Settings").click();
@@ -853,7 +844,7 @@ fn settings_link_to_discord() {
     snapshot(&mut h, "settings-dark");
     h.get_by_label("Questions, ideas and news from the BD team");
     // The footer icon and the button in Settings.
-    assert!(h.query_all_by_label_contains("Discord").count() >= 2);
+    assert!(h.query_all_by_label_contains("WhatsApp").count() >= 2);
 }
 
 #[test]
@@ -885,11 +876,11 @@ fn the_uninstall_prompt_keeps_its_own_size_after_a_taller_dialog() {
 fn links_to_the_website_github_and_each_apps_pages() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
-    // Footer: website, GitHub and Discord.
-    for label in ["Website", "GitHub", "Discord"] {
+    // Footer: website, GitHub and WhatsApp.
+    for label in ["Website", "GitHub", "WhatsApp"] {
         assert!(h.query_all_by_label(label).count() >= 1, "{label}");
     }
-    // Cards: every app links to its repo and to its own page on bdtecnologia.com.br (plus the footer's).
+    // Cards: every app links to its repo and to its own page on bdtecnolog.ia.br (plus the footer's).
     let shown_cards = h.query_all_by_label("GitHub").count() - 1;
     let shown_sites = h.query_all_by_label("Website").count() - 1;
     assert!(shown_cards >= 13, "{shown_cards}");
@@ -934,27 +925,20 @@ fn all_opened(h: &mut Harness<'_, Option<LauncherUi>>, label: &str) -> Vec<Strin
 fn links_open_the_right_pages() {
     let (mut h, _) = harness(ViewMode::Grid, egui::Theme::Dark, true);
     h.run_steps(6);
-    assert_eq!(click_opens(&mut h, "Discord").as_deref(), Some("https://discord.gg/bd"));
+    assert_eq!(click_opens(&mut h, "WhatsApp").as_deref(), Some("https://wa.me/5511963080423"));
     // The footer's BD links and each card's own pages.
     let github = all_opened(&mut h, "GitHub");
     assert!(github.contains(&"https://github.com/bd-tecnologia".to_string()), "{github:?}");
     assert!(github.contains(&"https://github.com/bd-tecnologia/photocraft".to_string()), "{github:?}");
     let sites = all_opened(&mut h, "Website");
-    assert!(sites.contains(&"https://bdtecnologia.com.br".to_string()), "{sites:?}");
-    assert_eq!(sites, vec!["https://bdtecnologia.com.br".to_string()], "{sites:?}");
+    assert!(sites.contains(&"https://bdtecnolog.ia.br".to_string()), "{sites:?}");
+    assert_eq!(sites, vec!["https://bdtecnolog.ia.br".to_string()], "{sites:?}");
     // The … menu.
     h.get_all_by_label("…").next().unwrap().click();
     h.run_steps(3);
     // The first card is the first installed app by name.
     let url = click_opens(&mut h, "All releases").unwrap_or_default();
     assert!(url.starts_with("https://github.com/bd-tecnologia/") && url.ends_with("/releases"), "{url}");
-}
-
-#[test]
-fn discord_link_opens_app_when_discord_is_installed() {
-    let (mut h, _) = harness_with_discord(Some(bd_launcher_core::catalog::DISCORD_APP_URL));
-    h.run_steps(6);
-    assert_eq!(click_opens(&mut h, "Discord").as_deref(), Some("discord://-/invite/bd"));
 }
 
 #[test]
@@ -1117,8 +1101,8 @@ fn feed_announcements_and_alerts_show_until_dismissed() {
     let sent = Rc::new(RefCell::new(Vec::new()));
     let mut evs = events();
     evs.push(Event::Notices {
-        announcements: vec![notice("a1", "CADCraft 1.0 is out", Some("https://bdtecnologia.com.br/news"))],
-        alerts: vec![notice("x1", "Security update", Some("https://bdtecnologia.com.br/security"))],
+        announcements: vec![notice("a1", "CADCraft 1.0 is out", Some("https://bdtecnolog.ia.br/news"))],
+        alerts: vec![notice("x1", "Security update", Some("https://bdtecnolog.ia.br/security"))],
     });
     let mut backend =
         Some(Fake { events: evs, sent, manage: true, pictures: Rc::default(), asked: Vec::new(), icons_sent: false, clock: Rc::new(Cell::new(NOW)) });
@@ -1622,9 +1606,9 @@ fn the_rate_limit_notice_never_runs_under_the_footer_links() {
         let checked = h.get_by_label_contains("Checked ").rect();
         // Cut short in a narrow window, but enough of it left to read.
         assert!(notice.width() >= 120.0 && notice.right() <= width, "{width}: notice {notice:?}");
-        // Everything on the footer's right: the website, GitHub and Discord icons.
+        // Everything on the footer's right: the website, GitHub and WhatsApp icons.
         let mut right = Vec::new();
-        for label in ["Website", "GitHub", "Discord"] {
+        for label in ["Website", "GitHub", "WhatsApp"] {
             right.extend(h.query_all_by_label(label).map(|n| n.rect()).filter(|r| (r.center().y - notice.center().y).abs() < 12.0));
         }
         assert_eq!(right.len(), 3, "{width}: {right:?}");

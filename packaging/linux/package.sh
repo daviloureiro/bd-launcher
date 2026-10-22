@@ -50,7 +50,7 @@ case "$ARCH" in
   aarch64 | arm64) ARCH=aarch64; DEB_ARCH=arm64 ;;
   *) echo "unsupported architecture $ARCH" >&2; exit 2 ;;
 esac
-export BD_LAUNCHER_MAINTAINER="${BD_LAUNCHER_MAINTAINER:-BD Launcher maintainers <bd-launcher@bdtecnologia.com.br>}"
+export BD_LAUNCHER_MAINTAINER="${BD_LAUNCHER_MAINTAINER:-BD Launcher maintainers <bd-launcher@bdtecnolog.ia.br>}"
 BASENAME="$PKG-$VERSION-linux-$ARCH"
 
 echo "==> BD Launcher $VERSION for Linux $ARCH ($FORMATS)"

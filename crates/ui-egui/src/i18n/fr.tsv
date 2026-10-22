@@ -13,7 +13,7 @@
 # Left in English on purpose: product name "BD Launcher" (and its "Launcher" tag), suite
 # name "BD Apps", app names (PhotoCraft, LightCraft, FilmCraft, DesignCraft, VectorCraft,
 # PdfCraft, EffectCraft, WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft, FigCraft), "GitHub",
-# "Discord".
+# "WhatsApp".
 # Trailing "…" (U+2026) must be preserved. Placeholders {name}, {n}, {version}, {count}, {v},
 # {what}, {unit}, {real}, {e} must appear in translation.
 
@@ -38,7 +38,6 @@
 	Installed version	Version installée
 	Latest version	Dernière version
 	Newest release	Version la plus récente
-	Discord	Discord
 	GitHub	GitHub
 	Website	Site web
 	Classic apps	Applications classiques
@@ -124,7 +123,6 @@
 	Apps you hid	Applications que vous avez masquées
 	Checked {ago} · using {sources}	Vérifié {ago} · via {sources}
 	{a} and {b}	{a} et {b}
-	Join the Discord	Rejoindre le Discord
 	Learn more	En savoir plus
 	Minimize	Réduire
 	Maximize	Agrandir
@@ -192,7 +190,6 @@ month	Dec	déc.
 	Installing for {platform}	Installation pour {platform}
 	Downloads for {platform}	Téléchargements pour {platform}
 	No downloads for this system	Aucun téléchargement pour ce système
-	Join the BD community on Discord	Rejoindre la communauté BD sur Discord
 	BD on {name}	BD sur {name}
 	Couldn't open {name}: {e}	Impossible d'ouvrir {name} : {e}
 	Download cancelled	Téléchargement annulé
@@ -316,7 +313,6 @@ filter	Installed	Installées
 @id	sort.installed	Version installée
 @id	sort.latest	Dernière version
 @id	sort.released	Version la plus récente
-@id	help.discord	Discord
 @id	help.github	GitHub
 @id	help.website	Site web
 @id	update.check	Rechercher des mises à jour
@@ -332,9 +328,8 @@ filter	Installed	Installées
 # Tray (menu bar) menu and tooltip
 	Show BD Launcher	Afficher BD Launcher
 	Check for Updates	Rechercher des mises à jour
-	Visit bdtecnologia.com.br	Visiter bdtecnologia.com.br
+	Visit bdtecnolog.ia.br	Visiter bdtecnolog.ia.br
 	BD on GitHub	BD sur GitHub
-	Join the BD Discord	Rejoindre le Discord d'BD
 	App details	Détails de l'application
 	Close (Esc)	Fermer (Esc)
 	Features	Fonctionnalités
@@ -381,3 +376,5 @@ column	Version	Version
 @msg	the catalog isn't readable	le catalogue est illisible
 @msg	secure connections aren't available	les connexions sécurisées ne sont pas disponibles
 @msg	Firebase is asking us to slow down	Firebase nous demande de ralentir
+	WhatsApp	WhatsApp
+	Talk to BD on WhatsApp	Parler à BD sur WhatsApp

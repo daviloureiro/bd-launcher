@@ -44,9 +44,9 @@
     <!-- MSI caches this icon using its Id as the filename; keep the .exe extension (ICE50). -->
     <Icon Id="BDLauncherIcon.exe" SourceFile="$(var.IconPath)" />
     <Property Id="ARPPRODUCTICON" Value="BDLauncherIcon.exe" />
-    <Property Id="ARPURLINFOABOUT" Value="https://bdtecnologia.com.br/apps" />
+    <Property Id="ARPURLINFOABOUT" Value="https://bdtecnolog.ia.br/apps" />
     <Property Id="ARPURLUPDATEINFO" Value="https://github.com/bd-tecnologia/bd-launcher/releases" />
-    <Property Id="ARPHELPLINK" Value="https://discord.gg/bd" />
+    <Property Id="ARPHELPLINK" Value="https://bdtecnolog.ia.br" />
 
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="LocalProgramsFolder" Name="Programs">

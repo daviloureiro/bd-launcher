@@ -95,7 +95,7 @@ Copy-Item (Join-Path $Bin $Exe) $Stage
 & (Join-Path $PSScriptRoot 'sign.ps1') (Join-Path $Stage $Exe)
 
 # ---- MSI ---------------------------------------------------------------------------------------
-# The setup wizard's art, drawn here (System.Drawing) in bdtecnologia.com.br's style so the MSI shows
+# The setup wizard's art, drawn here (System.Drawing) in bdtecnolog.ia.br's style so the MSI shows
 # BD rather than WiX's stock bitmaps. Both must be 24-bit BMPs:
 #   - dialog, 493x312: the Welcome and Finish pages' backdrop. Their text sits on the right, so
 #     that stays white; the left panel is ours: the blue BD mark, the white wordmark and a mono

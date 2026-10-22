@@ -14,7 +14,7 @@
 # Left in English on purpose: product name "BD Launcher" (and its "Launcher" tag), suite
 # name "BD Apps",
 # app names (PhotoCraft, LightCraft, FilmCraft, DesignCraft, VectorCraft, PdfCraft, EffectCraft,
-# WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft, FigCraft), "GitHub", "Discord".
+# WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft, FigCraft), "GitHub", "WhatsApp".
 # Shortcut keys keep their key-cap names (Shift, Alt, Ctrl, Cmd, Esc).
 # Trailing "…" (U+2026) must be preserved. Placeholders {name}, {n}, {version}, {count}, {v},
 # {what}, {unit}, {real}, {e} must appear in translation.
@@ -40,7 +40,6 @@
 	Installed version	Installierte Version
 	Latest version	Neueste Version
 	Newest release	Neueste Veröffentlichung
-	Discord	Discord
 	GitHub	GitHub
 	Website	Website
 	Classic apps	Klassische Apps
@@ -126,7 +125,6 @@
 	Apps you hid	Apps, die du ausgeblendet hast
 	Checked {ago} · using {sources}	Zuletzt geprüft: {ago} · über {sources}
 	{a} and {b}	{a} und {b}
-	Join the Discord	Dem Discord beitreten
 	Learn more	Mehr erfahren
 	Minimize	Minimieren
 	Maximize	Maximieren
@@ -194,7 +192,6 @@ month	Dec	Dez.
 	Installing for {platform}	Installation für {platform}
 	Downloads for {platform}	Downloads für {platform}
 	No downloads for this system	Keine Downloads für dieses System
-	Join the BD community on Discord	Tritt der BD-Community auf Discord bei
 	BD on {name}	BD auf {name}
 	Couldn't open {name}: {e}	{name} konnte nicht geöffnet werden: {e}
 	Download cancelled	Download abgebrochen
@@ -318,7 +315,6 @@ filter	Installed	Installiert
 @id	sort.installed	Installierte Version
 @id	sort.latest	Neueste Version
 @id	sort.released	Neueste Veröffentlichung
-@id	help.discord	Discord
 @id	help.github	GitHub
 @id	help.website	Website
 @id	update.check	Nach Updates suchen
@@ -334,9 +330,8 @@ filter	Installed	Installiert
 # Tray (menu bar) menu and tooltip
 	Show BD Launcher	BD Launcher anzeigen
 	Check for Updates	Nach Updates suchen
-	Visit bdtecnologia.com.br	bdtecnologia.com.br besuchen
+	Visit bdtecnolog.ia.br	bdtecnolog.ia.br besuchen
 	BD on GitHub	BD auf GitHub
-	Join the BD Discord	Dem BD-Discord beitreten
 	App details	App-Details
 	Close (Esc)	Schließen (Esc)
 	Features	Funktionen
@@ -383,3 +378,5 @@ column	Version	Version
 @msg	the catalog isn't readable	Der Katalog ist nicht lesbar
 @msg	secure connections aren't available	Sichere Verbindungen sind nicht verfügbar
 @msg	Firebase is asking us to slow down	Firebase bittet uns, langsamer zu sein
+	WhatsApp	WhatsApp
+	Talk to BD on WhatsApp	Mit BD über WhatsApp sprechen

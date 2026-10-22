@@ -12,7 +12,7 @@ permission to use the BD Marks only:
 
   1. as part of copies of this repository; and
   2. within BD Launcher itself, its documentation and its official builds, to identify BD Launcher as made
-     by the BD team and community and to link to bdtecnologia.com.br and its community.
+     by the BD team and community and to link to bdtecnolog.ia.br and its community.
 
 Conditions
 
@@ -38,5 +38,5 @@ unchanged.
 Everything else
 
 Any use not expressly permitted here needs prior written permission from the BD Team
-(https://bdtecnologia.com.br/). The permission ends automatically for anyone who breaks these terms.
+(https://bdtecnolog.ia.br/). The permission ends automatically for anyone who breaks these terms.
 All other rights are reserved.

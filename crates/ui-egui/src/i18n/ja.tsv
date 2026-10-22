@@ -14,7 +14,7 @@
 # Left in English on purpose: product name "BD Launcher" (and its "Launcher" tag), suite
 # name "BD Apps",
 # app names (PhotoCraft, LightCraft, FilmCraft, DesignCraft, VectorCraft, PdfCraft, EffectCraft,
-# WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft, FigCraft), "GitHub", "Discord".
+# WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft, FigCraft), "GitHub", "WhatsApp".
 # Shortcut keys keep their key-cap names (Shift, Alt, Ctrl, Cmd, Esc).
 # Trailing "…" (U+2026) must be preserved. Placeholders {name}, {n}, {version}, {count}, {v},
 # {what}, {unit}, {real}, {e} must appear in translation.
@@ -42,7 +42,6 @@
 	Installed version	インストール済みバージョン
 	Latest version	最新バージョン
 	Newest release	最新リリース
-	Discord	Discord
 	GitHub	GitHub
 	Website	ウェブサイト
 	Classic apps	クラシックアプリ
@@ -128,7 +127,6 @@
 	Apps you hid	非表示にしたアプリ
 	Checked {ago} · using {sources}	最終確認: {ago} · 取得元: {sources}
 	{a} and {b}	{a} と {b}
-	Join the Discord	Discord に参加
 	Learn more	詳細を見る
 	Minimize	最小化
 	Maximize	最大化
@@ -196,7 +194,6 @@ month	Dec	12月
 	Installing for {platform}	{platform} にインストール
 	Downloads for {platform}	{platform} 用のダウンロード
 	No downloads for this system	このシステム用のダウンロードはありません
-	Join the BD community on Discord	Discord で BD コミュニティに参加
 	BD on {name}	{name} の BD
 	Couldn't open {name}: {e}	{name} を開けませんでした: {e}
 	Download cancelled	ダウンロードをキャンセルしました
@@ -334,7 +331,6 @@ filter	Installed	インストール済み
 @id	sort.installed	インストール済みバージョン
 @id	sort.latest	最新バージョン
 @id	sort.released	最新リリース
-@id	help.discord	Discord
 @id	help.github	GitHub
 @id	help.website	ウェブサイト
 @id	update.check	更新を確認
@@ -350,9 +346,8 @@ filter	Installed	インストール済み
 # Tray (menu bar) menu and tooltip
 	Show BD Launcher	BD Launcher を表示
 	Check for Updates	更新を確認
-	Visit bdtecnologia.com.br	bdtecnologia.com.br を開く
+	Visit bdtecnolog.ia.br	bdtecnolog.ia.br を開く
 	BD on GitHub	GitHub の BD
-	Join the BD Discord	BD Discord に参加
 @plural	BD Launcher · {n} update available|BD Launcher · {n} updates available	BD Launcher · {n} 件の更新があります
 	Install folder	インストール先フォルダー
 	Default install folder	既定のインストール先フォルダー
@@ -386,3 +381,5 @@ column	Version	バージョン
 @msg	the catalog isn't readable	カタログを読み取れません
 @msg	secure connections aren't available	安全な接続を利用できません
 @msg	Firebase is asking us to slow down	Firebase から速度を落とした多功能求められています
+	WhatsApp	WhatsApp
+	Talk to BD on WhatsApp	WhatsAppで BD と話す

@@ -1,4 +1,4 @@
-//! Small building blocks in bdtecnologia.com.br's style: mono labels, square buttons, badges and
+//! Small building blocks in bdtecnolog.ia.br's style: mono labels, square buttons, badges and
 //! hairline cell groups.
 //!
 //! Upper-case text is drawn upper case but announced to screen readers as written.

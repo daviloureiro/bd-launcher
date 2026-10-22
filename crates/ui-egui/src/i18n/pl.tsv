@@ -14,7 +14,7 @@
 # Left in English on purpose: product name "BD Launcher" (and its "Launcher" tag), suite
 # name "BD Apps", app names (PhotoCraft, LightCraft, FilmCraft, DesignCraft, VectorCraft,
 # PdfCraft, EffectCraft, WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft, FigCraft), "GitHub",
-# "Discord".
+# "WhatsApp".
 # Shortcut keys keep their key-cap names (Shift, Alt, Ctrl, Cmd, Esc).
 # Trailing "…" (U+2026) must be preserved. Placeholders {name}, {n}, {version}, {count}, {v},
 # {what}, {unit}, {real}, {e} must appear in translation.
@@ -40,7 +40,6 @@
 	Installed version	Zainstalowana wersja
 	Latest version	Najnowsza wersja
 	Newest release	Najnowsze wydanie
-	Discord	Discord
 	GitHub	GitHub
 	Website	Strona
 	Classic apps	Klasyczne aplikacje
@@ -127,7 +126,6 @@
 	Apps you hid	Aplikacje ukryte przez ciebie
 	Checked {ago} · using {sources}	Ostatnio sprawdzono {ago} · przy użyciu {sources}
 	{a} and {b}	{a} i {b}
-	Join the Discord	Dołącz na Discorda
 	Learn more	Więcej
 	Minimize	Minimalizuj
 	Maximize	Maksymalizuj
@@ -195,7 +193,6 @@ month	Dec	gru
 	Installing for {platform}	Instalowanie dla {platform}
 	Downloads for {platform}	Do pobrania dla {platform}
 	No downloads for this system	Brak pobrań dla tego systemu
-	Join the BD community on Discord	Dołącz do społeczności BD na Discordzie
 	BD on {name}	BD w serwisie {name}
 	Couldn't open {name}: {e}	Nie udało się otworzyć {name}: {e}
 	Download cancelled	Anulowano pobieranie
@@ -333,7 +330,6 @@ filter	Installed	Zainstalowane
 @id	sort.installed	Zainstalowana wersja
 @id	sort.latest	Najnowsza wersja
 @id	sort.released	Najnowsze wydanie
-@id	help.discord	Discord
 @id	help.github	GitHub
 @id	help.website	Strona
 @id	update.check	Sprawdź dostępność aktualizacji
@@ -349,9 +345,8 @@ filter	Installed	Zainstalowane
 # Tray (menu bar) menu and tooltip
 	Show BD Launcher	Pokaż BD Launcher
 	Check for Updates	Sprawdź dostępność aktualizacji
-	Visit bdtecnologia.com.br	Odwiedź bdtecnologia.com.br
+	Visit bdtecnolog.ia.br	Odwiedź bdtecnolog.ia.br
 	BD on GitHub	BD na GitHubie
-	Join the BD Discord	Dołącz do Discorda BD
 @plural	BD Launcher · {n} update available|BD Launcher · {n} updates available	BD Launcher · {n} dostępna aktualizacja|BD Launcher · {n} dostępne aktualizacje|BD Launcher · {n} dostępnych aktualizacji
 	Install folder	Folder instalacji
 	Default install folder	Domyślny folder instalacji
@@ -385,3 +380,5 @@ column	Version	Wersja
 @msg	the catalog isn't readable	nie można odczytać katalogu
 @msg	secure connections aren't available	bezpieczne połączenia są niedostępne
 @msg	Firebase is asking us to slow down	Firebase prosi nas, żebyśmy zwolnili
+	WhatsApp	WhatsApp
+	Talk to BD on WhatsApp	Porozmawiaj z BD na WhatsApp

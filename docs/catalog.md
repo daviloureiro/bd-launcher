@@ -45,7 +45,7 @@ pointed elsewhere with `BD_LAUNCHER_CATALOG_URL` and `BD_LAUNCHER_STORAGE`.
       "ink_light": "#1a5bc4",             // the same colour, for text on a light background
       "ink_dark": "#7fb0ff",              // ... and on a dark one
       "icon": "icons/photocraft.png",     // a path in the bucket, or an absolute https address
-      "website": "https://bdtecnologia.com.br/apps/photocraft",
+      "website": "https://bdtecnolog.ia.br/apps/photocraft",
       "github": "bd-tecnologia/photocraft",
       "package_id": "com.bdtecnologia.photocraft",
       "categories": "Graphics;Photo;",    // the Linux menu categories
@@ -86,7 +86,7 @@ pointed elsewhere with `BD_LAUNCHER_CATALOG_URL` and `BD_LAUNCHER_STORAGE`.
 Every field is optional and read leniently: a field of the wrong type reads as missing, one bad
 app never spoils the others, and an unknown field is ignored.
 
-`social` is the list of accounts the footer shows, after the website, the GitHub and the Discord
+`social` is the list of accounts the footer shows, after the website, the GitHub and the WhatsApp
 links. Only a name the interface has an icon for, and only an `https` address, are kept. When the
 catalog has no `social`, the launcher's built-in list is used — so a wrong handle is a one-line
 write to Firebase, not a new launcher. A `release` may be missing (an app
@@ -199,7 +199,7 @@ cargo xtask publish --app meuapp --version 1.1.0 --dir dist/1.1.0 --app-file app
   "color": "#1876ff",
   "ink_light": "#0b51b8",
   "ink_dark": "#7ab5ff",
-  "website": "https://bdtecnologia.com.br/apps/meuapp",
+  "website": "https://bdtecnolog.ia.br/apps/meuapp",
   "package_id": "com.bdtecnologia.meuapp",
   "categories": "Utility;",
   "details": { "headline": "Uma linha sob o nome." }

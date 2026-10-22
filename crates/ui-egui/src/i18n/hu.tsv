@@ -14,7 +14,7 @@
 # Left in English on purpose: product name "BD Launcher" (and its "Launcher" tag), suite
 # name "BD Apps",
 # app names (PhotoCraft, LightCraft, FilmCraft, DesignCraft, VectorCraft, PdfCraft, EffectCraft,
-# WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft, FigCraft), "GitHub", "Discord".
+# WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft, FigCraft), "GitHub", "WhatsApp".
 # Shortcut keys keep their key-cap names (Shift, Alt, Ctrl, Cmd, Esc).
 # Trailing "…" (U+2026) must be preserved. Placeholders {name}, {n}, {version}, {count}, {v},
 # {what}, {unit}, {real}, {e} must appear in translation.
@@ -40,7 +40,6 @@
 	Installed version	Telepített verzió
 	Latest version	Legújabb verzió
 	Newest release	Legújabb kiadás
-	Discord	Discord
 	GitHub	GitHub
 	Website	Webhely
 	Classic apps	Eredeti alkalmazások
@@ -126,7 +125,6 @@
 	Apps you hid	Az általad elrejtett alkalmazások
 	Checked {ago} · using {sources}	Ellenőrizve: {ago} · {sources}
 	{a} and {b}	{a} és {b}
-	Join the Discord	Csatlakozás a Discordhoz
 	Learn more	További információ
 	Minimize	Kis méret
 	Maximize	Teljes méret
@@ -194,7 +192,6 @@ month	Dec	dec.
 	Installing for {platform}	Telepítés {platform} rendszerre
 	Downloads for {platform}	Letöltések {platform} rendszerre
 	No downloads for this system	Nincsenek letöltések ehhez a rendszerhez
-	Join the BD community on Discord	Csatlakozz az BD közösségéhez a Discordon
 	BD on {name}	BD – {name}
 	Couldn't open {name}: {e}	{name} nem nyitható meg: {e}
 	Download cancelled	Letöltés megszakítva
@@ -332,7 +329,6 @@ filter	Installed	Telepítve
 @id	sort.installed	Telepített verzió
 @id	sort.latest	Legújabb verzió
 @id	sort.released	Legújabb kiadás
-@id	help.discord	Discord
 @id	help.github	GitHub
 @id	help.website	Webhely
 @id	update.check	Frissítések keresése
@@ -348,9 +344,8 @@ filter	Installed	Telepítve
 # Tray (menu bar) menu and tooltip
 	Show BD Launcher	BD Launcher megjelenítése
 	Check for Updates	Frissítések keresése
-	Visit bdtecnologia.com.br	bdtecnologia.com.br megnyitása
+	Visit bdtecnolog.ia.br	bdtecnolog.ia.br megnyitása
 	BD on GitHub	BD a GitHubon
-	Join the BD Discord	Csatlakozás az BD Discord-közösségéhez
 @plural	BD Launcher · {n} update available|BD Launcher · {n} updates available	BD Launcher · {n} frissítés elérhető|BD Launcher · {n} frissítés elérhető
 	Install folder	Telepítési mappa
 	Default install folder	Alapértelmezett telepítési mappa
@@ -384,3 +379,5 @@ column	Version	Verzió
 @msg	the catalog isn't readable	a katalógus nem olvasható
 @msg	secure connections aren't available	biztonságos kapcsolatok nem érhetők el
 @msg	Firebase is asking us to slow down	a Firebase lassabban megy
+	WhatsApp	WhatsApp
+	Talk to BD on WhatsApp	Beszélj a BD-vel WhatsAppon

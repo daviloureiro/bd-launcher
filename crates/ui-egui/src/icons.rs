@@ -64,14 +64,14 @@ pub fn social(service: &str) -> Option<ImageSource<'static>> {
         "TikTok" => egui::include_image!("../../../assets/social/tiktok.svg"),
         "Instagram" => egui::include_image!("../../../assets/social/instagram.svg"),
         "GitHub" => egui::include_image!("../../../assets/social/github.svg"),
-        "Discord" => egui::include_image!("../../../assets/social/discord.svg"),
+        "WhatsApp" => egui::include_image!("../../../assets/social/whatsapp.svg"),
         "Website" => egui::include_image!("../../../assets/social/globe.svg"),
         "LinkedIn" => egui::include_image!("../../../assets/social/linkedin.svg"),
         _ => return None,
     })
 }
 
-/// The BD mark in blue, as supplied: the launcher's app icon and bdtecnologia.com.br's favicon.
+/// The BD mark in blue, as supplied: the launcher's app icon and bdtecnolog.ia.br's favicon.
 pub fn bd_mark_blue() -> ImageSource<'static> {
     egui::include_image!("../../../docs/brand/bd-mark-blue.svg")
 }

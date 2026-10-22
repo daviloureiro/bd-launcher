@@ -33,7 +33,7 @@ xtask/                                  cargo xtask ci | wasm | version | ico | 
 packaging/                              macOS, Windows, Linux, FreeBSD and web packaging scripts
 assets/app-icon/                        the launcher's own icon (master SVG, renders, tray icons)
 assets/app-icons/                       the test fixtures' icons, copied from each app's repo
-assets/fonts/                           Archivo, Inter, Geist Mono (OFL-1.1): bdtecnologia.com.br's faces
+assets/fonts/                           Archivo, Inter, Geist Mono (OFL-1.1): bdtecnolog.ia.br's faces
 ```
 
 Layering: `core` depends on no other workspace crate and must build for `wasm32-unknown-unknown`.
@@ -79,7 +79,7 @@ settings file must produce an error the user can act on, never a panic. Shared s
 
 ### Look and feel
 
-The UI matches the apps page on bdtecnologia.com.br (`bd-website-next` in `bd-services`):
+The UI matches the apps page on bdtecnolog.ia.br (`bd-website-next` in `bd-services`):
 hard square corners, 1 px hairlines instead of shadows, Archivo (620, 118 % width) for headings
 and app names, Inter for body text, upper-case Geist Mono labels and buttons, and the site's
 colour tokens by name (`theme::Tokens`). Build new UI from `widgets.rs`; never hard-code a colour.

@@ -1,4 +1,4 @@
-//! Colours, type and shapes, matching bdtecnologia.com.br: hard edges, hairline rules, Archivo
+//! Colours, type and shapes, matching bdtecnolog.ia.br: hard edges, hairline rules, Archivo
 //! display type, Inter body text and Geist Mono labels. Widgets read [`Tokens::get`]; nothing
 //! hard-codes a colour.
 

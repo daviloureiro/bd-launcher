@@ -26,7 +26,6 @@
 	Installed version	Nainstalovaná verze
 	Latest version	Nejnovější verze
 	Newest release	Nejnovější vydání
-	Discord	Discord
 	GitHub	GitHub
 	Website	Web
 	Classic apps	Klasické aplikace
@@ -112,7 +111,6 @@
 	Apps you hid	Aplikace, které jste skryli
 	Checked {ago} · using {sources}	Zkontrolováno {ago} · zdroje: {sources}
 	{a} and {b}	{a} a {b}
-	Join the Discord	Připojit se na Discord
 	Learn more	Další informace
 	Minimize	Minimalizovat
 	Maximize	Maximalizovat
@@ -174,7 +172,6 @@ month	Dec	12.
 	Installing for {platform}	Instalace pro {platform}
 	Downloads for {platform}	Stažení pro {platform}
 	No downloads for this system	Pro tento systém nejsou k dispozici žádné soubory ke stažení
-	Join the BD community on Discord	Připojit se ke komunitě BD na Discordu
 	BD on {name}	BD na {name}
 	Couldn't open {name}: {e}	{name} nelze otevřít: {e}
 	Download cancelled	Stahování zrušeno
@@ -301,7 +298,6 @@ filter	Installed	Nainstalováno
 @id	sort.installed	Nainstalovaná verze
 @id	sort.latest	Nejnovější verze
 @id	sort.released	Nejnovější vydání
-@id	help.discord	Discord
 @id	help.github	GitHub
 @id	help.website	Web
 @id	update.check	Zkontrolovat aktualizace
@@ -315,9 +311,8 @@ filter	Installed	Nainstalováno
 @id	appearance.theme	Vzhled
 	Show BD Launcher	Zobrazit BD Launcher
 	Check for Updates	Zkontrolovat aktualizace
-	Visit bdtecnologia.com.br	Navštívit bdtecnologia.com.br
+	Visit bdtecnolog.ia.br	Navštívit bdtecnolog.ia.br
 	BD on GitHub	BD na GitHubu
-	Join the BD Discord	Připojit se na BD Discord
 @plural	BD Launcher · {n} update available|BD Launcher · {n} updates available	BD Launcher · {n} dostupná aktualizace|BD Launcher · {n} dostupné aktualizace|BD Launcher · {n} dostupných aktualizací
 	Install folder	Instalační složka
 	Default install folder	Výchozí instalační složka
@@ -351,3 +346,5 @@ column	Version	Verze
 @msg	the catalog isn't readable	katalog nelze přečíst
 @msg	secure connections aren't available	zabezpečené připojení není k dispozici
 @msg	Firebase is asking us to slow down	Firebase žádá, abychom zpomalili
+	WhatsApp	WhatsApp
+	Talk to BD on WhatsApp	Promluvte s BD na WhatsAppu

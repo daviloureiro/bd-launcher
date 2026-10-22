@@ -1,5 +1,5 @@
 //! The header, toolbar, footer, the grid of cards and the table, laid out like the apps page on
-//! bdtecnologia.com.br: hairline cells, mono labels and square controls.
+//! bdtecnolog.ia.br: hairline cells, mono labels and square controls.
 
 use bd_launcher_core::platform::pick_asset;
 use bd_launcher_core::protocol::{Command, JobPhase};
@@ -314,7 +314,7 @@ impl LauncherUi {
             (format!("· {full}"), format!("· {short}"))
         });
         use bd_launcher_core::catalog::{GITHUB_URL, WEBSITE_URL};
-        // Every link is an icon, reading Website, GitHub, Discord, then the social accounts.
+        // Every link is an icon, reading Website, GitHub, WhatsApp, then the social accounts.
         let named = |name: &str, label: &str, url: &str| widgets::IconLink {
             name: name.to_string(),
             label: label.to_string(),
@@ -325,10 +325,10 @@ impl LauncherUi {
             named("Website", tl!("Website"), WEBSITE_URL),
             named("GitHub", tl!("GitHub"), GITHUB_URL),
             widgets::IconLink {
-                name: "Discord".to_string(),
-                label: tl!("Discord").to_string(),
-                tip: tl!("Join the BD community on Discord").to_string(),
-                url: self.discord_url.to_string(),
+                name: "WhatsApp".to_string(),
+                label: tl!("WhatsApp").to_string(),
+                tip: tl!("Talk to BD on WhatsApp").to_string(),
+                url: bd_launcher_core::catalog::WHATSAPP_URL.to_string(),
             },
         ];
         // The catalog names the social accounts; the built-in list is the fallback. An account

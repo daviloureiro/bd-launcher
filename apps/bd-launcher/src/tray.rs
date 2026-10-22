@@ -55,16 +55,15 @@ impl Tray {
     pub fn new(wake: impl Fn() + Send + Sync + Clone + 'static, on_quit: impl Fn() + Send + Sync + 'static) -> Result<Self, String> {
         let show = MenuItem::new(i18n::t("Show BD Launcher"), true, None);
         let check = MenuItem::new(i18n::t("Check for Updates"), true, None);
-        use bd_launcher_core::catalog::{GITHUB_URL, WEBSITE_URL};
-        let website = MenuItem::new(i18n::t("Visit bdtecnologia.com.br"), true, None);
+        use bd_launcher_core::catalog::{GITHUB_URL, WEBSITE_URL, WHATSAPP_URL};
+        let website = MenuItem::new(i18n::t("Visit bdtecnolog.ia.br"), true, None);
         let github = MenuItem::new(i18n::t("BD on GitHub"), true, None);
-        let discord = MenuItem::new(i18n::t("Join the BD Discord"), true, None);
+        let whatsapp = MenuItem::new(i18n::t("Talk to BD on WhatsApp"), true, None);
         let quit = MenuItem::new(i18n::t("Quit BD Launcher"), true, None);
         let menu = Menu::new();
-        menu.append_items(&[&show, &check, &PredefinedMenuItem::separator(), &website, &github, &discord, &PredefinedMenuItem::separator(), &quit])
+        menu.append_items(&[&show, &check, &PredefinedMenuItem::separator(), &website, &github, &whatsapp, &PredefinedMenuItem::separator(), &quit])
             .map_err(|e| e.to_string())?;
-        let links = [(website.id().clone(), WEBSITE_URL), (github.id().clone(), GITHUB_URL)];
-        let discord_id = discord.id().clone();
+        let links = [(website.id().clone(), WEBSITE_URL), (github.id().clone(), GITHUB_URL), (whatsapp.id().clone(), WHATSAPP_URL)];
         let icon = identity(TrayIconBuilder::new())
             .with_menu(Box::new(menu))
             .with_icon(load_icon()?)
@@ -78,7 +77,7 @@ impl Tray {
         {
             let tx = tx.clone();
             let wake = wake.clone();
-            let ids = (show_id.clone(), check_id.clone(), quit_id.clone(), discord_id);
+            let ids = (show_id.clone(), check_id.clone(), quit_id.clone());
             MenuEvent::set_event_handler(Some(move |e: MenuEvent| {
                 let action = if e.id == ids.0 {
                     TrayAction::Show
@@ -86,8 +85,6 @@ impl Tray {
                     TrayAction::Check
                 } else if e.id == ids.2 {
                     TrayAction::Quit
-                } else if e.id == ids.3 {
-                    TrayAction::Open(bd_launcher_native::process::discord_url())
                 } else if let Some((_, url)) = links.iter().find(|(id, _)| *id == e.id) {
                     TrayAction::Open(url)
                 } else {
@@ -109,9 +106,9 @@ impl Tray {
         let labels = vec![
             (show, "Show BD Launcher"),
             (check, "Check for Updates"),
-            (website, "Visit bdtecnologia.com.br"),
+            (website, "Visit bdtecnolog.ia.br"),
             (github, "BD on GitHub"),
-            (discord, "Join the BD Discord"),
+            (whatsapp, "Talk to BD on WhatsApp"),
             (quit, "Quit BD Launcher"),
         ];
         Ok(Self { icon, show: show_id, check: check_id, quit: quit_id, rx, tooltip: String::new(), language: String::new(), labels })
