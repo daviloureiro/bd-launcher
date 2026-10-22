@@ -141,18 +141,21 @@ cargo xtask publish --app photocraft --version 1.3.0 --dir dist/1.3.0 \
 
 It:
 
-1. hashes every file in the folder (SHA-256) and notes its size;
-2. uploads the folder to `apps/photocraft/1.3.0/` in the bucket (through the Firebase CLI);
+1. hashes every file in the folder (SHA-256) and notes its size — symlinks are refused;
+2. uploads only those hashed files to `apps/photocraft/1.3.0/` in the bucket (through the Firebase CLI);
 3. uploads the icon to `icons/photocraft.png`;
 4. writes the app's entry to `catalog/apps/photocraft` in the database.
 
 The database write needs a token. Get one with
-[`firebase login:ci`](https://firebase.tools/docs/cli) and pass it:
+[`firebase login:ci`](https://firebase.tools/docs/cli) and set it — never as a command-line
+flag, so it never lands in the shell history:
 
 ```sh
 export BD_LAUNCHER_FIREBASE_TOKEN=<token>
 cargo xtask publish --app photocraft --version 1.3.0 --dir dist/1.3.0
 ```
+
+The token is sent as an `Authorization: Bearer` header, never in the URL.
 
 Without a token the files are still uploaded and the command prints the exact JSON to paste into
 the Firebase console, so nothing is lost. `--dry-run` prints what would be done and uploads

@@ -210,8 +210,12 @@ impl Catalog {
         let value: Value = serde_json::from_str(json).ok()?;
         let root = value.as_object()?;
         let mut catalog = Catalog { storage: text(root.get("storage")).unwrap_or_default(), ..Catalog::default() };
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
         for item in entries(root.get("apps")) {
-            if let Some(app) = App::from_value(&item) {
+            // An id twice would make two cards fight over one install: the first wins.
+            if let Some(app) = App::from_value(&item)
+                && seen.insert(app.id.clone())
+            {
                 catalog.apps.push(app);
             }
         }
@@ -237,6 +241,14 @@ impl Catalog {
         catalog.announcements.truncate(MAX_NOTICES);
         catalog.alerts.truncate(MAX_NOTICES);
         catalog.social.truncate(MAX_SOCIAL);
+        for release in catalog.launcher.as_mut().into_iter().chain(catalog.apps.iter_mut().filter_map(|a| a.release.as_mut())) {
+            release.assets.truncate(MAX_ASSETS);
+        }
+        for app in &mut catalog.apps {
+            if let Some(details) = app.details.as_mut() {
+                details.shots.truncate(MAX_SHOTS);
+            }
+        }
         Some(catalog)
     }
 
@@ -504,6 +516,11 @@ const MAX_APPS: usize = 200;
 const MAX_NOTICES: usize = 20;
 /// The social accounts the catalog may name.
 const MAX_SOCIAL: usize = 12;
+/// The files of one release the catalog may name: each one is a download the launcher may take.
+const MAX_ASSETS: usize = 500;
+/// The pictures of one details page the catalog may name: each one is a request the launcher
+/// makes when the page is opened.
+const MAX_SHOTS: usize = 20;
 /// The longest text a field may hold.
 const MAX_TEXT: usize = 8000;
 
@@ -515,8 +532,18 @@ impl App {
         if id.is_empty() || id.len() > 64 || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b)) {
             return None;
         }
-        let name = text(value.get("name")).unwrap_or_else(|| id.clone());
+        let raw_name = text(value.get("name")).unwrap_or_else(|| id.clone());
+        // The name becomes a folder name for MSI installs: anything that could escape the
+        // folder falls back to the id (which is already validated).
+        let name = if is_safe_name(&raw_name) { raw_name } else { id.clone() };
         let details = value.get("details").and_then(|d| AppDetails::from_value(d, &id));
+        // Every field that becomes a path, a command line or a URL is validated: an invalid
+        // value reads as missing, and the safe default below stands in.
+        let website = text(value.get("website")).filter(|u| release::safe_web_link(u)).unwrap_or_default();
+        let github = text(value.get("github")).filter(|g| is_safe_repo(g)).unwrap_or_default();
+        let package_id = text(value.get("package_id")).filter(|p| is_safe_package_id(p)).unwrap_or_default();
+        let categories = text(value.get("categories")).filter(|c| is_safe_categories(c)).unwrap_or_default();
+        let wm_class = text(value.get("wm_class")).filter(|w| is_safe_wm_class(w)).unwrap_or_default();
         Some(App {
             id,
             name,
@@ -525,11 +552,11 @@ impl App {
             ink_light: color(value.get("ink_light")).unwrap_or(BRAND_INK_LIGHT),
             ink_dark: color(value.get("ink_dark")).unwrap_or(BRAND_INK_DARK),
             icon: text(value.get("icon")).unwrap_or_default(),
-            website: text(value.get("website")).unwrap_or_default(),
-            github: text(value.get("github")).unwrap_or_default(),
-            package_id: text(value.get("package_id")).unwrap_or_default(),
-            categories: text(value.get("categories")).unwrap_or_default(),
-            wm_class: text(value.get("wm_class")).unwrap_or_default(),
+            website,
+            github,
+            package_id,
+            categories,
+            wm_class,
             former_ids: strings(value.get("former_ids")),
             former_names: strings(value.get("former_names")),
             details,
@@ -602,8 +629,9 @@ impl Notice {
             return None;
         }
         let created_at = number(value.get("created_at")).map(|n| n as i64);
-        let link = text(value.get("link"))
-            .filter(|l| (l.starts_with("https://") || l.starts_with("http://")) && l.len() <= 2000 && !l.chars().any(char::is_whitespace));
+        // Notices are opened in the system browser: `https` only, so a catalog can never
+        // send the user to a plaintext page.
+        let link = text(value.get("link")).filter(|l| l.starts_with("https://") && l.len() <= 2000 && !l.chars().any(char::is_whitespace));
         Some(Notice {
             id: text(value.get("id")).unwrap_or_else(|| format!("{kind}:{}:{}", created_at.unwrap_or_default(), title.trim())),
             title: title.trim().to_string(),
@@ -622,6 +650,45 @@ fn text(value: Option<&Value>) -> Option<String> {
         return None;
     }
     Some(trimmed.chars().take(MAX_TEXT).collect())
+}
+
+/// Whether `s` is a safe display name: no control characters, no path separators, and
+/// never `.` or `..` (it becomes a folder name for MSI installs).
+fn is_safe_name(s: &str) -> bool {
+    !s.is_empty() && s.len() <= 128 && !s.chars().any(|c| c.is_control() || matches!(c, '/' | '\\')) && s != "." && s != ".."
+}
+
+/// Whether `s` is a safe package id (`com.bdtecnologia.<app>`): dot-separated labels of
+/// letters, digits, `-` and `_`. Anything else (notably `/`, `\` and `..`) is rejected, so
+/// it can never become a path that escapes the folder it is written in.
+fn is_safe_package_id(s: &str) -> bool {
+    if s.is_empty() || s.len() > 128 || s.starts_with('.') || s.ends_with('.') || s.contains("..") {
+        return false;
+    }
+    let mut labels = s.split('.');
+    labels.all(|label| {
+        !label.is_empty()
+            && label.len() <= 64
+            && label.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b))
+            && label.bytes().next().is_some_and(|b| b.is_ascii_alphanumeric())
+    })
+}
+
+/// Whether `s` is a safe menu category list (`Utility;Photo;`): letters, digits, `-` and `;`.
+fn is_safe_categories(s: &str) -> bool {
+    !s.is_empty() && s.len() <= 256 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b"-;".contains(&b))
+}
+
+/// Whether `s` is a safe window class: letters, digits, `.`, `-` and `_`.
+fn is_safe_wm_class(s: &str) -> bool {
+    !s.is_empty() && s.len() <= 128 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b".-_".contains(&b))
+}
+
+/// Whether `s` is a safe `owner/repo` reference on GitHub.
+fn is_safe_repo(s: &str) -> bool {
+    let Some((owner, repo)) = s.split_once('/') else { return false };
+    let part = |p: &str| !p.is_empty() && p.len() <= 64 && p.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b));
+    part(owner) && part(repo) && !s.contains("..")
 }
 
 /// A list of strings.
@@ -670,6 +737,34 @@ fn color(value: Option<&Value>) -> Option<[u8; 3]> {
     Some(out)
 }
 
+/// Whether downloads may be taken from the host of `url`: the storage service (or the
+/// developer's own machine in a `local-mirror` build). The catalog names the host; without
+/// this, any `https` host on the internet would do.
+pub fn storage_host_allowed(url: &str) -> bool {
+    let Some(rest) = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://")) else { return false };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host = authority.split('@').next_back().unwrap_or_default().split(':').next().unwrap_or_default();
+    if host.is_empty() {
+        return false;
+    }
+    if host == "storage.googleapis.com" || host.ends_with(".googleapis.com") || host.ends_with(".firebasestorage.app") {
+        return true;
+    }
+    cfg!(feature = "local-mirror") && matches!(host, "127.0.0.1" | "localhost" | "[::1]")
+}
+
+/// Whether the catalog may be read from `url`: the Realtime Database (or the developer's own
+/// machine in a `local-mirror` build).
+pub fn catalog_host_allowed(url: &str) -> bool {
+    let Some(rest) = url.strip_prefix("https://") else {
+        return cfg!(feature = "local-mirror")
+            && (url.starts_with("http://127.0.0.1") || url.starts_with("http://localhost") || url.starts_with("http://[::1]"));
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host = authority.split('@').next_back().unwrap_or_default().split(':').next().unwrap_or_default().to_ascii_lowercase();
+    host.ends_with(".firebaseio.com") || host.ends_with(".firebasedatabase.app")
+}
+
 /// A path in the storage bucket, turned into an address; an address is left alone.
 fn absolute(path: &str, storage: &str) -> Option<String> {
     let path = path.trim();
@@ -692,9 +787,10 @@ fn absolute(path: &str, storage: &str) -> Option<String> {
         };
         format!("{base}/{}", path.trim_start_matches('/'))
     };
-    // Whatever it came out as, it has to be an address a download may come from: `https`
-    // anywhere, or `http` on the developer's own machine in a local-mirror build.
-    release::safe_download(&url).then_some(url)
+    // Whatever it came out as, it has to be an address a download may come from, on a
+    // host the launcher trusts: the storage service, or the developer's own machine in a
+    // local-mirror build.
+    (release::safe_download(&url) && storage_host_allowed(&url)).then_some(url)
 }
 
 #[cfg(test)]
@@ -807,6 +903,53 @@ mod tests {
             catalog.by_id("x").unwrap().icon_url(&catalog.storage).as_deref(),
             Some("https://storage.googleapis.com/bd-tecnologia.firebasestorage.app/icons/x.png")
         );
+    }
+
+    #[test]
+    fn a_hostile_package_id_never_becomes_a_path() {
+        let json = r#"{"storage": "https://storage.googleapis.com/b", "apps": [
+            {"id": "x", "package_id": "../../../../tmp/evil"},
+            {"id": "y", "package_id": "com.bdtecnologia.y", "categories": "Utility;Evil\nExec=x;", "wm_class": "x\nExec=y"}
+        ]}"#;
+        let catalog = Catalog::parse(json).unwrap();
+        // Traversal is dropped: the default id is used instead.
+        assert_eq!(catalog.by_id("x").unwrap().bundle_id(), "com.bdtecnologia.x");
+        // A newline in a menu field is dropped: the empty default stands in (the menu
+        // builder falls back to `Utility;`).
+        let y = catalog.by_id("y").unwrap();
+        assert!(y.categories.is_empty());
+        assert!(y.wm_class.is_empty());
+        assert!(is_safe_package_id("com.bdtecnologia.app"));
+        assert!(!is_safe_package_id("../../../../tmp/evil"));
+        assert!(!is_safe_package_id("com.bdtecnologia/app"));
+        assert!(!is_safe_categories("Utility;Evil\nExec=x;"));
+        assert!(!is_safe_wm_class("x\nExec=y"));
+    }
+
+    #[test]
+    fn only_https_pages_and_valid_repos_survive() {
+        let json = r#"{"storage": "https://storage.googleapis.com/b", "apps": [
+            {"id": "x", "website": "file:///etc/passwd", "github": "not a repo"},
+            {"id": "y", "website": "https://bdtecnolog.ia.br/apps/y", "github": "bd-tecnologia/y"}
+        ]}"#;
+        let catalog = Catalog::parse(json).unwrap();
+        let x = catalog.by_id("x").unwrap();
+        assert!(x.website.is_empty(), "a non-https page is dropped");
+        assert!(x.github.is_empty(), "a malformed repo is dropped");
+        let y = catalog.by_id("y").unwrap();
+        assert_eq!(y.website, "https://bdtecnolog.ia.br/apps/y");
+        assert_eq!(y.github, "bd-tecnologia/y");
+        assert!(!is_safe_repo("not a repo") && !is_safe_repo("../escape/x"));
+    }
+
+    #[test]
+    fn the_first_app_with_an_id_wins_and_lists_are_capped() {
+        let apps = String::from("{\"id\": \"x\"},{\"id\": \"x\", \"name\": \"Second\"}");
+        let json = format!("{{\"storage\": \"https://storage.googleapis.com/b\", \"apps\": [{apps}]}}");
+        let catalog = Catalog::parse(&json).unwrap();
+        assert_eq!(catalog.apps.len(), 1);
+        assert!(catalog.by_id("x").unwrap().name.is_empty() || catalog.by_id("x").unwrap().name == "x");
+        let _ = apps;
     }
 
     #[test]

@@ -204,11 +204,15 @@ impl NativeBackend {
                 return;
             };
             let storage = catalog.storage.clone();
+            let previous: Vec<String> = shared.catalog.lock().unwrap_or_else(PoisonError::into_inner).apps.iter().map(|a| a.id.clone()).collect();
             *shared.catalog.lock().unwrap_or_else(PoisonError::into_inner) = catalog.clone();
             // The list comes first: what is found on the machine is about the apps in it, and
             // the UI builds its cards from the list before it hears about them.
             shared.emit(Event::Catalog(catalog.clone()));
-            if !shared.detecting.swap(true, Ordering::SeqCst) {
+            // Looking at the machine lists packages and reads files: only worth repeating
+            // when the list itself changed (the UI already re-detects on its own schedule).
+            let changed = previous.len() != catalog.apps.len() || catalog.apps.iter().map(|a| &a.id).ne(previous.iter());
+            if changed && !shared.detecting.swap(true, Ordering::SeqCst) {
                 detect_apps(&shared, &paths, platform, &options, &catalog.apps);
                 shared.detecting.store(false, Ordering::SeqCst);
             }
@@ -667,9 +671,24 @@ fn read_catalog(store: &CatalogStore, shared: &Shared) -> Option<Catalog> {
             }
         }
     }?;
-    // A deployment may keep its files in another bucket.
+    // A deployment may keep its files in another bucket, but only on a host the
+    // launcher trusts: anything else is ignored, so the environment can't steer a
+    // release build at an attacker's files.
     Some(match std::env::var("BD_LAUNCHER_STORAGE") {
-        Ok(storage) if !storage.trim().is_empty() => catalog.with_storage(&storage),
+        Ok(storage) if !storage.trim().is_empty() => {
+            let trimmed = storage.trim();
+            let probe = if trimmed.contains("://") {
+                format!("{}/x", trimmed.trim_end_matches('/'))
+            } else {
+                format!("https://storage.googleapis.com/{}/x", trimmed.trim_matches('/'))
+            };
+            if bd_launcher_core::catalog::storage_host_allowed(&probe) {
+                catalog.with_storage(trimmed)
+            } else {
+                log::warn!("ignoring BD_LAUNCHER_STORAGE: it doesn't name the storage service");
+                catalog
+            }
+        }
         _ => catalog,
     })
 }
@@ -1147,6 +1166,9 @@ mod tests {
         std::fs::write(crate::catalog_store::catalog_path(&paths.cache), serde_json::to_vec(&catalog).unwrap()).unwrap();
         let shared = shared();
         let shared = Arc::new(shared);
+        // The backend hasn't seen the list yet: the check has to both announce it and look
+        // at the machine for its apps.
+        *shared.catalog.lock().unwrap_or_else(PoisonError::into_inner) = Catalog::builtin();
         let backend = NativeBackend {
             shared: shared.clone(),
             paths,

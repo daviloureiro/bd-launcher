@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use bd_launcher_core::catalog::{CATALOG_URL, Catalog};
+use bd_launcher_core::catalog::{CATALOG_URL, Catalog, catalog_host_allowed};
 
 use crate::http::{Fetched, Http};
 
@@ -26,15 +26,14 @@ impl CatalogStore {
         Self { http, path, etag: Arc::new(Mutex::new(etag)) }
     }
 
-    /// Where the catalog is read from: the environment variable, or the compiled-in address.
-    /// A `http` address is only accepted on the developer's own machine, and only in a build
-    /// with the `local-mirror` feature.
+    /// Where the catalog is read from: the compiled-in address, or the `BD_LAUNCHER_CATALOG_URL`
+    /// override when it names the Realtime Database (or the developer's own machine in a
+    /// `local-mirror` build). Anything else is ignored, so nothing that can set the
+    /// environment can steer a release build at an attacker's catalog.
     pub fn url() -> String {
         let from_env = std::env::var("BD_LAUNCHER_CATALOG_URL").ok().map(|u| u.trim().to_string()).filter(|u| !u.is_empty());
         match from_env {
-            Some(u) if u.starts_with("https://") => u,
-            Some(u) if cfg!(feature = "local-mirror") && u.starts_with("http://127.0.0.1") => u,
-            Some(u) if cfg!(feature = "local-mirror") && u.starts_with("http://localhost") => u,
+            Some(u) if catalog_host_allowed(&u) => u,
             _ => CATALOG_URL.to_string(),
         }
     }

@@ -157,7 +157,7 @@ impl LauncherUi {
                                     .platform
                                     .and_then(|p| launcher_download(&r, p, crate::settings::is_flatpak_sandbox()))
                                     .unwrap_or_else(|| r.html_url.clone());
-                                if widgets::button(ui, tl!("Download"), Kind::Primary, 0.0).clicked() {
+                                if widgets::button(ui, tl!("Download"), Kind::Primary, 0.0).clicked() && !url.is_empty() {
                                     ui.ctx().open_url(egui::OpenUrl::new_tab(url));
                                 }
                             }
@@ -928,6 +928,10 @@ impl LauncherUi {
             if links {
                 ui.separator();
                 let link = |ui: &mut Ui, label: &str, url: String| {
+                    // The address comes from the catalog: only a plain `https` page is opened.
+                    if !bd_launcher_core::release::safe_web_link(&url) {
+                        return;
+                    }
                     if ui.button(label).clicked() {
                         ui.ctx().open_url(egui::OpenUrl::new_tab(url));
                         ui.close();

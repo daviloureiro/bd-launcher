@@ -348,3 +348,5 @@ column	Version	版本
 @msg	Firebase is asking us to slow down	Firebase 要求我们放慢速度
 	WhatsApp	WhatsApp
 	Talk to BD on WhatsApp	通过 WhatsApp 联系 BD
+	Loading…	正在加载…
+	Try again	重试

@@ -261,6 +261,7 @@ pub fn window_edges(ctx: &egui::Context) {
 }
 
 /// A mono link with an ↗: muted, ink on hover. Opens `url` in the browser.
+/// Does nothing when the address is empty.
 pub fn hud_link(ui: &mut Ui, text: &str, url: &str) -> Response {
     let t = Tokens::get(ui.ctx());
     let galley = hud_galley(ui, &format!("{text} ↗"), t.muted);
@@ -268,7 +269,7 @@ pub fn hud_link(ui: &mut Ui, text: &str, url: &str) -> Response {
     paint_left(ui, rect, galley, if resp.hovered() { t.ink_strong } else { t.muted });
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Link, true, text));
     let resp = resp.on_hover_text(url).on_hover_cursor(egui::CursorIcon::PointingHand);
-    if resp.clicked() {
+    if resp.clicked() && !url.is_empty() {
         ui.ctx().open_url(egui::OpenUrl::new_tab(url));
     }
     resp

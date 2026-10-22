@@ -693,6 +693,13 @@ impl LauncherUi {
                                 crate::widgets::hud(ui, tl!("The app list couldn't be loaded"), tokens.muted);
                                 ui.add_space(6.0);
                                 crate::widgets::hud(ui, &crate::i18n::msg(why), tokens.faint);
+                                ui.add_space(10.0);
+                                if crate::widgets::button(ui, tl!("Try again"), crate::widgets::Kind::Secondary, 0.0).clicked() {
+                                    self.send(Command::CheckForUpdates { force: true });
+                                }
+                            } else if self.entries.is_empty() {
+                                // The catalog hasn't arrived yet: still loading, not "no apps".
+                                crate::widgets::hud(ui, tl!("Loading…"), tokens.muted);
                             } else {
                                 crate::widgets::hud(ui, tl!("No apps match"), tokens.muted);
                             }

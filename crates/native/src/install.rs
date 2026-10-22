@@ -1031,6 +1031,15 @@ pub(crate) mod linux {
         let ours_before = |p: &Path| previous.is_some_and(|r| r.files.iter().any(|f| f == p));
         let mut written = Vec::new();
         let icon = icon_path(data, app);
+        let desktop = desktop_path(data, app);
+        // The file names come from the catalog: refuse to write anywhere but the folders the
+        // launcher owns, whatever the catalog names.
+        let applications = data.join("applications");
+        let icons = data.join("icons/hicolor/128x128/apps");
+        if !desktop.starts_with(&applications) || !icon.starts_with(&icons) {
+            log::warn!("{}: refusing to write a menu entry outside the data folder", app.id);
+            return written;
+        }
         let has_icon = match icon_png {
             Some(png) if !icon.exists() || ours_before(&icon) => match crate::paths::write_atomic(&icon, png) {
                 Ok(()) => {
@@ -1049,7 +1058,6 @@ pub(crate) mod linux {
             log::warn!("{}: {} can't be written into a menu entry; skipping it", app.name, appimage.display());
             return written;
         };
-        let desktop = desktop_path(data, app);
         let replace = match std::fs::read_to_string(&desktop) {
             Ok(old) => {
                 crate::desktop_entry::is_ours(&old)

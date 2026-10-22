@@ -40,8 +40,12 @@ usage: cargo xtask publish --app <id> --version <x.y.z> --dir <folder> [options]
   --launcher        publish BD Launcher's own release, not an app's
   --project <id>    the Firebase project (default: bd-tecnologia)
   --bucket <name>   the storage bucket (default: bd-tecnologia.firebasestorage.app)
-  --token <token>   a Realtime Database token (or set BD_LAUNCHER_FIREBASE_TOKEN)
   --dry-run         print what would be done and stop
+
+The Realtime Database token always comes from the `BD_LAUNCHER_FIREBASE_TOKEN`
+environment variable: it is never a command-line flag (so it never lands in the
+shell history or in another user's process list), and it is sent as an
+`Authorization: Bearer` header (so it never lands in a URL or a proxy log).
 
 The database's address is https://<project>.firebaseio.com. Set
 BD_LAUNCHER_FIREBASE_DATABASE_URL to point somewhere else (the emulator, a
@@ -101,9 +105,12 @@ pub fn run(args: &[&str]) -> Result<(), String> {
         return Ok(());
     }
 
-    // 1. The files, in the bucket.
+    // 1. The files, in the bucket: only the files that were hashed, one by one, so the
+    // bucket and the catalog can never disagree about what was published.
     if !options.no_upload {
-        upload(&options, &options.dir, &prefix)?;
+        for file in &files {
+            upload(&options, &options.dir.join(&file.name), &format!("{prefix}/{}", file.name))?;
+        }
 
         // 2. The icon, in the bucket.
         if let Some(icon) = &options.icon {
@@ -142,7 +149,7 @@ fn parse(args: &[&str]) -> Result<Options, String> {
     let mut launcher = false;
     let mut project = DEFAULT_PROJECT.to_string();
     let mut bucket = DEFAULT_BUCKET.to_string();
-    let mut token = std::env::var("BD_LAUNCHER_FIREBASE_TOKEN").ok();
+    let token = std::env::var("BD_LAUNCHER_FIREBASE_TOKEN").ok().map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
     let mut dry_run = false;
 
     let mut rest = args.iter();
@@ -164,8 +171,13 @@ fn parse(args: &[&str]) -> Result<Options, String> {
             "--launcher" => launcher = true,
             "--project" => project = value()?,
             "--bucket" => bucket = value()?,
-            "--token" => token = Some(value()?),
             "--dry-run" => dry_run = true,
+            "--token" => {
+                return Err(
+                    "`--token` is gone: put the token in BD_LAUNCHER_FIREBASE_TOKEN instead, so it never lands in the shell history or another user's process list"
+                        .to_string(),
+                );
+            }
             "--help" | "-h" => {
                 print!("{USAGE}");
                 return Err(String::new());
@@ -175,6 +187,14 @@ fn parse(args: &[&str]) -> Result<Options, String> {
     }
 
     let version = version.ok_or_else(|| format!("`--version` is needed\n\n{USAGE}"))?;
+    // The version becomes a bucket path segment: anything but a plain version could escape
+    // it, so only a real version is accepted (no leading `v`, no paths).
+    if version.starts_with(['v', 'V'])
+        || version.bytes().any(|b| !(b.is_ascii_alphanumeric() || b".-+".contains(&b)))
+        || bd_launcher_core::version::parse(&version).is_none()
+    {
+        return Err(format!("`{version}` is not a usable version: use `1.2.0` (or `1.2.0-rc.1`) without a leading `v`"));
+    }
     let dir = dir.ok_or_else(|| format!("`--dir` is needed\n\n{USAGE}"))?;
     if !launcher {
         let app = app.ok_or_else(|| format!("`--app` is needed\n\n{USAGE}"))?;
@@ -222,19 +242,27 @@ fn parse_social(list: &str) -> Result<Vec<(String, String)>, String> {
     Ok(out)
 }
 
-/// The release files, with their sizes and checksums.
+/// The release files, with their sizes and checksums. Only plain files in the folder
+/// itself: symlinks are refused (their target's contents would otherwise be uploaded to the
+/// public bucket under the link's name), and so are dotfiles.
 fn collect(dir: &Path) -> Result<Vec<File>, String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("couldn't read {}: {e}", dir.display()))?;
     let mut files = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|e| format!("couldn't read {}: {e}", dir.display()))?;
         let path = entry.path();
+        if std::fs::symlink_metadata(&path).is_ok_and(|m| m.file_type().is_symlink()) {
+            return Err(format!("refusing to publish {}: it is a symlink", path.display()));
+        }
         if !path.is_file() {
             continue;
         }
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue };
         if name.starts_with('.') || name == "SHA256SUMS.txt" {
             continue;
+        }
+        if name.bytes().any(|b| b == b'/' || b == b'\\') || name.contains("..") {
+            return Err(format!("refusing to publish {name}: the name could escape the folder"));
         }
         let bytes = std::fs::read(&path).map_err(|e| format!("couldn't read {}: {e}", path.display()))?;
         files.push(File { name: name.to_string(), size: bytes.len() as u64, sha256: hex(&Sha256::digest(&bytes)) });
@@ -539,8 +567,11 @@ fn set_field(object: &mut String, key: &str, value: &str) {
     *object = out;
 }
 
-/// Uploads a file or a folder to the bucket, with the Firebase CLI.
+/// Uploads one file to the bucket, with the Firebase CLI.
 fn upload(options: &Options, source: &Path, prefix: &str) -> Result<(), String> {
+    if std::fs::symlink_metadata(source).is_ok_and(|m| m.file_type().is_symlink()) {
+        return Err(format!("refusing to upload {}: it is a symlink", source.display()));
+    }
     let full = format!("gs://{}/{}", options.bucket, prefix);
     eprintln!("uploading {} to {full}", source.display());
     // The CLI takes the bucket in the destination; older versions want the path alone.
@@ -582,8 +613,8 @@ fn database_url(_options: &Options) -> String {
 
 /// The app's entry in the catalog, as it is now.
 fn read_catalog(options: &Options, id: &str, token: &str) -> Option<String> {
-    let url = format!("{}/catalog/apps/{id}.json?auth={token}", database_url(options));
-    let output = Command::new("curl").args(["-sS", url.as_str()]).output().ok()?;
+    let url = format!("{}/catalog/apps/{id}.json", database_url(options));
+    let output = Command::new("curl").args(["-sS", "-H", &format!("Authorization: Bearer {token}"), url.as_str()]).output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -599,7 +630,7 @@ fn write_catalog(options: &Options, path: &str, entry: &str) -> Result<(), Strin
     let Some(token) = options.token.as_deref() else {
         eprintln!(
             "\nThe files are uploaded, but the catalog was not updated: no Realtime Database token.\n\
-             Run the command again with `--token <token>` (or set BD_LAUNCHER_FIREBASE_TOKEN),\n\
+             Set BD_LAUNCHER_FIREBASE_TOKEN and run the command again,\n\
              or write this to {path} in the database:\n\n{entry}\n"
         );
         if !entry.contains("\"name\"") && !options.launcher {
@@ -610,10 +641,10 @@ fn write_catalog(options: &Options, path: &str, entry: &str) -> Result<(), Strin
         }
         return Ok(());
     };
-    let url = format!("{}/{path}.json?auth={token}", database_url(options));
+    let url = format!("{}/{path}.json", database_url(options));
     eprintln!("writing {path}");
     let output = Command::new("curl")
-        .args(["-sS", "-X", "PUT", "-H", "Content-Type: application/json", "-d", entry, &url])
+        .args(["-sS", "-X", "PUT", "-H", "Content-Type: application/json", "-H", &format!("Authorization: Bearer {token}"), "-d", entry, &url])
         .output()
         .map_err(|e| format!("couldn't run curl ({e})"))?;
     if !output.status.success() {
@@ -663,6 +694,23 @@ mod tests {
         let base = database_url(&options());
         assert!(CATALOG_URL.starts_with(&base), "{CATALOG_URL} is not under {base}");
         assert_eq!(base, "https://bd-tecnologia-default-rtdb.firebaseio.com");
+    }
+
+    #[test]
+    fn only_plain_versions_become_bucket_paths() {
+        let ok = ["1.2.0", "1.2.0-rc.1", "0.7.0+build"];
+        for v in ok {
+            assert!(parse(&["--app", "x", "--version", v, "--dir", "d"]).is_ok(), "{v}");
+        }
+        for v in ["v1.2.0", "../escape", "1.2.0/../../x", "1.2 0", "1.2.0\n", ""] {
+            assert!(parse(&["--app", "x", "--version", v, "--dir", "d"]).is_err(), "{v:?} must be refused");
+        }
+    }
+
+    #[test]
+    fn the_token_never_comes_from_the_command_line() {
+        // `--token` would land in the shell history and in another user's process list.
+        assert!(parse(&["--app", "x", "--version", "1.0.0", "--dir", "d", "--token", "abc"]).is_err());
     }
 
     #[test]

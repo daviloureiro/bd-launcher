@@ -545,6 +545,10 @@ fn link_buttons(ui: &mut Ui, app: &App) {
         ui.spacing_mut().item_spacing.x = 8.0;
         for (label, url) in links {
             let Some(url) = url else { continue };
+            // The catalog names the address: only a plain `https` page is opened.
+            if !bd_launcher_core::release::safe_web_link(&url) {
+                continue;
+            }
             if widgets::button(ui, &format!("{label} ↗"), Kind::Secondary, 0.0).on_hover_text(url.as_str()).clicked() {
                 ui.ctx().open_url(egui::OpenUrl::new_tab(url));
             }
