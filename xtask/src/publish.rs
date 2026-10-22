@@ -15,12 +15,13 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use bd_launcher_core::catalog::{CATALOG_URL, PROJECT, STORAGE_BUCKET};
 use sha2::{Digest, Sha256};
 
 /// The Firebase project the catalog and the bucket live in.
-const DEFAULT_PROJECT: &str = "bd-tecnologia";
+const DEFAULT_PROJECT: &str = PROJECT;
 /// The storage bucket the icons, the pictures and the downloads live in.
-const DEFAULT_BUCKET: &str = "bd-tecnologia.firebasestorage.app";
+const DEFAULT_BUCKET: &str = STORAGE_BUCKET;
 
 const USAGE: &str = "\
 usage: cargo xtask publish --app <id> --version <x.y.z> --dir <folder> [options]
@@ -570,11 +571,12 @@ fn run_firebase(source: &Path, destination: &str, args: &[&str]) -> bool {
     }
 }
 
-/// The database's address.
-fn database_url(options: &Options) -> String {
+/// The database's address: the same one the launcher reads the catalog from, unless the
+/// environment says otherwise.
+fn database_url(_options: &Options) -> String {
     match std::env::var("BD_LAUNCHER_FIREBASE_DATABASE_URL") {
         Ok(url) if !url.trim().is_empty() => url.trim().trim_end_matches('/').to_string(),
-        _ => format!("https://{}.firebaseio.com", options.project),
+        _ => CATALOG_URL.trim_end_matches('/').rsplit_once('/').map_or_else(|| CATALOG_URL.to_string(), |(base, _)| base.to_string()),
     }
 }
 
@@ -652,6 +654,15 @@ mod tests {
             token: None,
             dry_run: true,
         }
+    }
+
+    #[test]
+    fn the_database_is_the_one_the_launcher_reads() {
+        // The publishing step and the launcher have to agree: the same document, in the same
+        // database, or the launcher never sees what was published.
+        let base = database_url(&options());
+        assert!(CATALOG_URL.starts_with(&base), "{CATALOG_URL} is not under {base}");
+        assert_eq!(base, "https://bd-tecnologia-default-rtdb.firebaseio.com");
     }
 
     #[test]

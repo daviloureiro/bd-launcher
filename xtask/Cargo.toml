@@ -11,3 +11,5 @@ workspace = true
 [dependencies]
 # The checksums of the published files. Already in the lock file (the desktop backend uses it).
 sha2 = "0.10"
+# The one place that knows where the catalog and the bucket live.
+bd-launcher-core = { workspace = true }

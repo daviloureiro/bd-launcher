@@ -166,9 +166,11 @@ and no binary to ship.
 `--no-upload` writes only the catalog: use it when the files were uploaded by other means (a
 CI step that runs `gcloud storage rsync`, a build that pushes to the bucket itself).
 
-The database's address is `https://<project>.firebaseio.com`. Set
-`BD_LAUNCHER_FIREBASE_DATABASE_URL` to point somewhere else — the Firebase emulator, a staging
-database — when you want to try a change without touching the real one.
+The database's address is the one the launcher reads from
+(`bd_launcher_core::catalog::CATALOG_URL`, `https://bd-tecnologia-default-rtdb.firebaseio.com`),
+so the two can't drift apart. Set `BD_LAUNCHER_FIREBASE_DATABASE_URL` to point somewhere else —
+the Firebase emulator, a staging database — when you want to try a change without touching the
+real one.
 
 ### The app's own fields
 

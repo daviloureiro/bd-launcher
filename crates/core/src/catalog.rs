@@ -18,6 +18,9 @@ use serde_json::Value;
 use crate::release::{self, Asset, Release};
 use crate::version;
 
+/// The Firebase project the catalog and the bucket live in.
+pub const PROJECT: &str = "bd-tecnologia";
+
 /// The Firebase Realtime Database document the catalog is read from. A deployment can point
 /// somewhere else with the `BD_LAUNCHER_CATALOG_URL` environment variable.
 pub const CATALOG_URL: &str = "https://bd-tecnologia-default-rtdb.firebaseio.com/catalog.json";
