@@ -1,4 +1,4 @@
-//! Small building blocks in getartcraft.com's style: mono labels, square buttons, badges and
+//! Small building blocks in bdtecnologia.com.br's style: mono labels, square buttons, badges and
 //! hairline cell groups.
 //!
 //! Upper-case text is drawn upper case but announced to screen readers as written.
@@ -489,23 +489,25 @@ pub fn more_menu<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) {
     });
 }
 
-/// ArtCraft's social accounts as a row of small monochrome icons (faint, brighter on hover).
+/// BD's social accounts as a row of small monochrome icons (faint, brighter on hover).
 /// In a right-to-left layout they still read left to right.
 pub fn social_icons(ui: &mut Ui, size: f32) {
-    let links: Vec<IconLink> = artcraft_launcher_core::catalog::SOCIAL
-        .iter()
-        .map(|(name, url)| IconLink { name, label: (*name).to_string(), tip: crate::i18n::fmt(tl!("ArtCraft on {name}"), &[("name", name)]), url })
-        .collect();
+    let links: Vec<IconLink> = bd_launcher_core::catalog::SOCIAL.iter().map(|(name, url)| social_link(name, url)).collect();
     icon_links(ui, size, &links);
+}
+
+/// A social link: the service's name, the label a screen reader says and the address it opens.
+pub fn social_link(name: &str, url: &str) -> IconLink {
+    IconLink { name: name.to_string(), label: name.to_string(), tip: crate::i18n::fmt(tl!("BD on {name}"), &[("name", name)]), url: url.to_string() }
 }
 
 /// One logo that opens a page: `name` picks the picture, `label` is what a screen reader says,
 /// `tip` is the hover text.
-pub struct IconLink<'a> {
-    pub name: &'a str,
+pub struct IconLink {
+    pub name: String,
     pub label: String,
     pub tip: String,
-    pub url: &'a str,
+    pub url: String,
 }
 
 /// The width [`icon_links`] takes for `count` logos `size` wide.
@@ -517,7 +519,7 @@ pub fn icon_links_width(count: usize, size: f32) -> f32 {
 /// A row of logo links, given in reading order; each is `size` wide, spaced by the theme's
 /// `ICON_LINK_PAD` and `ICON_LINK_GAP` wherever the row is. In a right-to-left parent they still
 /// read in the order given.
-pub fn icon_links(ui: &mut Ui, size: f32, links: &[IconLink<'_>]) {
+pub fn icon_links(ui: &mut Ui, size: f32, links: &[IconLink]) {
     ui.scope(|ui| {
         ui.spacing_mut().item_spacing.x = crate::theme::ICON_LINK_GAP;
         for link in links_in_order(ui, links) {
@@ -526,12 +528,12 @@ pub fn icon_links(ui: &mut Ui, size: f32, links: &[IconLink<'_>]) {
     });
 }
 
-fn links_in_order<'l, 'a>(ui: &Ui, links: &'l [IconLink<'a>]) -> Vec<&'l IconLink<'a>> {
+fn links_in_order<'l>(ui: &Ui, links: &'l [IconLink]) -> Vec<&'l IconLink> {
     if ui.layout().prefer_right_to_left() { links.iter().rev().collect() } else { links.iter().collect() }
 }
 
-fn icon_link(ui: &mut Ui, size: f32, link: &IconLink<'_>) {
-    let Some(icon) = crate::icons::social(link.name) else { return };
+fn icon_link(ui: &mut Ui, size: f32, link: &IconLink) {
+    let Some(icon) = crate::icons::social(&link.name) else { return };
     let t = Tokens::get(ui.ctx());
     let pad = crate::theme::ICON_LINK_PAD;
     let (rect, resp) = ui.allocate_exact_size(vec2(size + 2.0 * pad, size + 2.0 * pad), Sense::click());
@@ -540,19 +542,23 @@ fn icon_link(ui: &mut Ui, size: f32, link: &IconLink<'_>) {
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Link, true, &link.label));
     let resp = resp.on_hover_text(&link.tip).on_hover_cursor(egui::CursorIcon::PointingHand);
     if resp.clicked() {
-        ui.ctx().open_url(egui::OpenUrl::new_tab(link.url));
+        ui.ctx().open_url(egui::OpenUrl::new_tab(&link.url));
     }
 }
 
 /// An app's name as the site sets it: Archivo, with "Craft" in the app's colour.
-pub fn wordmark(ui: &mut Ui, app: &artcraft_launcher_core::CraftApp, size: f32) -> Response {
+pub fn wordmark(ui: &mut Ui, app: &bd_launcher_core::App, size: f32) -> Response {
     wordmark_in(ui, app, size, true)
 }
 
 /// [`wordmark`], with "Craft" in the app's colour or, when `in_colour` is false, in grey.
-pub fn wordmark_in(ui: &mut Ui, app: &artcraft_launcher_core::CraftApp, size: f32, in_colour: bool) -> Response {
+pub fn wordmark_in(ui: &mut Ui, app: &bd_launcher_core::App, size: f32, in_colour: bool) -> Response {
     let t = Tokens::get(ui.ctx());
-    let (prefix, craft) = app.name.strip_suffix("Craft").map_or((app.name, ""), |p| (p, "Craft"));
+    // The last word of the name carries the app's colour.
+    let (prefix, accent) = match app.name.rfind(' ') {
+        Some(at) => (&app.name[..at], &app.name[at + 1..]),
+        None => ("", app.name.as_str()),
+    };
     let mut job = egui::text::LayoutJob::default();
     let format = |color| egui::TextFormat {
         font_id: egui::FontId::new(size, theme::display()),
@@ -561,7 +567,7 @@ pub fn wordmark_in(ui: &mut Ui, app: &artcraft_launcher_core::CraftApp, size: f3
         ..Default::default()
     };
     job.append(prefix, 0.0, format(t.ink_strong));
-    job.append(craft, 0.0, format(if in_colour { t.app_ink(app) } else { t.muted }));
+    job.append(accent, 0.0, format(if in_colour { t.app_ink(app) } else { t.muted }));
     ui.add(egui::Label::new(job).selectable(false))
 }
 

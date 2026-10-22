@@ -2,7 +2,7 @@
 //!
 //! An AppImage installs nothing by itself, so without an entry the app is missing from the
 //! desktop's menu and, on Wayland, the dock can't match the window's app id to an icon. The
-//! launcher writes `<data>/applications/ai.storyteller.<app>.desktop` (the id each app's window
+//! launcher writes `<data>/applications/com.bdtecnologia.<app>.desktop` (the id each app's window
 //! reports) and marks it as its own, so it only ever replaces or removes entries it wrote.
 //!
 //! The text is built by pure functions, tested on every platform; only Linux writes the files.
@@ -11,29 +11,17 @@
 
 use std::path::Path;
 
-use artcraft_launcher_core::CraftApp;
+use bd_launcher_core::App;
 
 /// The key that marks an entry as written by the launcher.
-pub const MARKER: &str = "X-ArtCraft-Launcher=true";
+pub const MARKER: &str = "X-BD-Launcher=true";
 
-/// The menu categories and the window class each app's own `.desktop` file declares.
-pub fn meta(app: &CraftApp) -> (&'static str, Option<&'static str>) {
-    match app.id {
-        "photocraft" => ("Graphics;2DGraphics;RasterGraphics;Photography;", Some("photocraft")),
-        "pdfcraft" => ("Office;Viewer;", Some("pdfcraft")),
-        "lightcraft" => ("Graphics;2DGraphics;RasterGraphics;Photography;", None),
-        "filmcraft" => ("AudioVideo;Video;AudioVideoEditing;", None),
-        "designcraft" => ("Graphics;Publishing;", None),
-        "vectorcraft" => ("Graphics;2DGraphics;VectorGraphics;", None),
-        "effectcraft" => ("AudioVideo;Video;Graphics;2DGraphics;", None),
-        "wordcraft" => ("Office;WordProcessor;", None),
-        "deckcraft" => ("Office;Presentation;", None),
-        "gridcraft" => ("Office;Spreadsheet;", None),
-        "cadcraft" => ("Graphics;Engineering;VectorGraphics;", None),
-        "soundcraft" => ("AudioVideo;Audio;Midi;Mixer;Sequencer;Recorder;", None),
-        "figcraft" => ("Graphics;2DGraphics;VectorGraphics;X-Design;", Some("figcraft")),
-        _ => ("Graphics;", None),
-    }
+/// The menu categories and the window class each app's own `.desktop` file declares. The
+/// catalog says both; the package id stands in for the window class when it doesn't.
+pub fn meta(app: &App) -> (String, Option<String>) {
+    let categories = if app.categories.is_empty() { "Utility;".to_string() } else { app.categories.clone() };
+    let wm_class = (!app.wm_class.is_empty()).then(|| app.wm_class.clone());
+    (categories, wm_class)
 }
 
 /// `path` as one quoted argument of an `Exec=` key, per the Desktop Entry spec: inside double
@@ -69,19 +57,19 @@ fn value(s: &str) -> String {
 
 /// The entry for `app` installed as the AppImage `appimage`; `icon` when its icon is installed
 /// under the app's id. `None` when the path can't be put in an `Exec=` line.
-pub fn render(app: &CraftApp, appimage: &Path, icon: bool) -> Option<String> {
+pub fn render(app: &App, appimage: &Path, icon: bool) -> Option<String> {
     let exec = exec_quote(appimage)?;
     let (categories, wm_class) = meta(app);
     let mut text = String::from("[Desktop Entry]\nType=Application\n");
-    text.push_str(&format!("Name={}\n", value(app.name)));
-    text.push_str(&format!("Comment={}\n", value(app.tagline)));
+    text.push_str(&format!("Name={}\n", value(&app.name)));
+    text.push_str(&format!("Comment={}\n", value(&app.tagline)));
     text.push_str(&format!("Exec={exec} %F\n"));
     if icon {
         text.push_str(&format!("Icon={}\n", app.bundle_id()));
     }
     text.push_str("Terminal=false\n");
     text.push_str(&format!("Categories={categories}\n"));
-    text.push_str(&format!("StartupWMClass={}\n", wm_class.map_or_else(|| app.bundle_id(), str::to_string)));
+    text.push_str(&format!("StartupWMClass={}\n", wm_class.unwrap_or_else(|| app.bundle_id())));
     text.push_str(MARKER);
     text.push('\n');
     Some(text)
@@ -136,8 +124,8 @@ mod tests {
 
     use super::*;
 
-    fn app(id: &str) -> &'static CraftApp {
-        CraftApp::by_id(id).unwrap()
+    fn app(id: &str) -> &App {
+        crate::testing::app(id)
     }
 
     #[test]
@@ -146,16 +134,16 @@ mod tests {
         let expected = format!(
             "[Desktop Entry]\nType=Application\nName=PhotoCraft\nComment={}\n\
              Exec=\"/home/ana/Applications/photocraft-0.6.0-linux-x86_64.AppImage\" %F\n\
-             Icon=ai.storyteller.photocraft\nTerminal=false\nCategories=Graphics;2DGraphics;RasterGraphics;Photography;\n\
-             StartupWMClass=photocraft\nX-ArtCraft-Launcher=true\n",
+             Icon=com.bdtecnologia.photocraft\nTerminal=false\nCategories=Utility;\n\
+             StartupWMClass=com.bdtecnologia.photocraft\nX-BD-Launcher=true\n",
             app("photocraft").tagline
         );
         assert_eq!(text, expected);
         assert!(is_ours(&text));
         let no_icon = render(app("wordcraft"), Path::new("/x/w.AppImage"), false).unwrap();
         assert!(!no_icon.contains("Icon="));
-        assert!(no_icon.contains("StartupWMClass=ai.storyteller.wordcraft\n"));
-        assert!(no_icon.contains("Categories=Office;WordProcessor;\n"));
+        assert!(no_icon.contains("StartupWMClass=com.bdtecnologia.wordcraft\n"));
+        assert!(no_icon.contains("Categories=Utility;\n"));
     }
 
     #[test]

@@ -93,7 +93,7 @@ fn fold_at(lines: &[Line<'_>]) -> Option<usize> {
 /// The address on a "**Full Changelog**: …" line, when it is a safe web link.
 fn full_changelog<'a>(line: &Line<'a>) -> Option<&'a str> {
     let Line::Text(text) = line else { return None };
-    text.strip_prefix("**Full Changelog**: ").map(str::trim).filter(|url| artcraft_launcher_core::release::safe_web_link(url))
+    text.strip_prefix("**Full Changelog**: ").map(str::trim).filter(|url| bd_launcher_core::release::safe_web_link(url))
 }
 
 fn draw(ui: &mut Ui, line: &Line<'_>, t: &Tokens, scale: f32) {
@@ -109,7 +109,7 @@ fn draw(ui: &mut Ui, line: &Line<'_>, t: &Tokens, scale: f32) {
                 ui.spacing_mut().item_spacing.x = 4.0;
                 ui.label(RichText::new("•").color(t.faint));
                 ui.label(RichText::new(text).color(t.ink));
-                if let Some(url) = link.filter(|u| artcraft_launcher_core::release::safe_web_link(u)) {
+                if let Some(url) = link.filter(|u| bd_launcher_core::release::safe_web_link(u)) {
                     let short = url.rsplit('/').next().map_or_else(|| tl!("link").to_string(), |n| format!("#{n}"));
                     ui.hyperlink_to(RichText::new(short).size(12.0 * scale), url);
                 }
@@ -132,8 +132,8 @@ mod tests {
     fn reads_githubs_generated_notes() {
         assert_eq!(classify("## What's Changed"), Line::Heading("What's Changed"));
         assert_eq!(
-            classify("* Add the Patch tool (#213) by @a in https://github.com/storytold/photocraft/pull/381"),
-            Line::Bullet("Add the Patch tool (#213) by @a", Some("https://github.com/storytold/photocraft/pull/381"))
+            classify("* Add the Patch tool (#213) by @a in https://github.com/bd-tecnologia/photocraft/pull/381"),
+            Line::Bullet("Add the Patch tool (#213) by @a", Some("https://github.com/bd-tecnologia/photocraft/pull/381"))
         );
         assert_eq!(classify("- plain bullet"), Line::Bullet("plain bullet", None));
         assert_eq!(classify("   "), Line::Blank);

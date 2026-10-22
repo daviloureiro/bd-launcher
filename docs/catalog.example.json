@@ -1,0 +1,61 @@
+{
+  "storage": "https://storage.googleapis.com/bd-tecnologia.firebasestorage.app",
+  "apps": {
+    "exemplo": {
+      "id": "exemplo",
+      "name": "Exemplo",
+      "tagline": "O que o app faz, em poucas palavras",
+      "color": "#1876ff",
+      "ink_light": "#0b51b8",
+      "ink_dark": "#7ab5ff",
+      "icon": "icons/exemplo.png",
+      "website": "https://bdtecnologia.com.br/apps/exemplo",
+      "github": "bd-tecnologia/exemplo",
+      "package_id": "com.bdtecnologia.exemplo",
+      "categories": "Utility;",
+      "former_ids": [],
+      "former_names": [],
+      "details": {
+        "headline": "Uma linha sob o nome.",
+        "about": "Um parágrafo sobre o app.\n\nE o resto da história, num segundo parágrafo.",
+        "features": [
+          { "title": "Destaque", "text": "O que o app faz bem." },
+          { "title": "Offline", "text": "Tudo funciona sem conexão." }
+        ],
+        "shots": [{ "key": "demo", "caption": "A tela principal" }],
+        "platforms": "macOS, Windows, Linux, web"
+      },
+      "release": {
+        "version": "1.0.0",
+        "tag": "v1.0.0",
+        "published_at": 1791500000,
+        "notes": "A primeira versão.",
+        "base": "apps/exemplo/1.0.0/",
+        "assets": [
+          {
+            "name": "exemplo-1.0.0-windows-x64.msi",
+            "size": 52428800,
+            "sha256": "8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1"
+          },
+          {
+            "name": "exemplo-1.0.0-macos-universal.dmg",
+            "size": 41943040,
+            "sha256": "8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1"
+          },
+          {
+            "name": "exemplo-1.0.0-linux-x86_64.AppImage",
+            "size": 62914560,
+            "sha256": "8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1"
+          }
+        ]
+      }
+    }
+  },
+  "announcements": [],
+  "alerts": [],
+  "social": [
+    { "name": "YouTube", "url": "https://www.youtube.com/@bdtecnologia" },
+    { "name": "Instagram", "url": "https://www.instagram.com/officialbdstudios" },
+    { "name": "LinkedIn", "url": "https://www.linkedin.com/company/bd-tecnologia" }
+  ]
+}

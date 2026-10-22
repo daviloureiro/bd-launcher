@@ -71,7 +71,7 @@ jobs:
       - name: Check wasm-safe crates
         run: cargo xtask wasm
       - name: Clippy (wasm32)
-        run: cargo clippy -p artcraft-launcher-core -p artcraft-launcher-web --target wasm32-unknown-unknown --locked -- -D warnings
+        run: cargo clippy -p bd-launcher-core -p bd-launcher-web --target wasm32-unknown-unknown --locked -- -D warnings
       - name: Install trunk
         run: |
           curl -fsSL "https://github.com/trunk-rs/trunk/releases/download/v${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz" \

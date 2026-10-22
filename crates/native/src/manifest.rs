@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use artcraft_launcher_core::PackageKind;
+use bd_launcher_core::PackageKind;
 use serde::{Deserialize, Serialize};
 
 /// One app the launcher installed.

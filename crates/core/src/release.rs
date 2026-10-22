@@ -60,6 +60,36 @@ fn is_hex64(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
+/// Whether `s` is a SHA-256 checksum: 64 hex digits.
+pub fn is_sha256(s: &str) -> bool {
+    is_hex64(s)
+}
+
+/// Whether `url` is a plain `https` address a download may be taken from: a host, no user-info,
+/// no spaces or control characters, and nothing that could point somewhere else.
+///
+/// A build with the `local-mirror` feature also accepts a plain `http` address on the
+/// developer's own machine, where `cargo xtask local serve` puts the builds.
+pub fn safe_download(url: &str) -> bool {
+    if let Some(rest) = url.strip_prefix("http://") {
+        return cfg!(feature = "local-mirror") && is_loopback(rest);
+    }
+    let Some(rest) = url.strip_prefix("https://") else { return false };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    !authority.is_empty()
+        && !authority.contains(['@', '\\', ':'])
+        && authority.bytes().all(|b| b.is_ascii_alphanumeric() || b".-_".contains(&b))
+        && url.len() <= 2000
+        && !url.chars().any(|c| c.is_control() || c.is_whitespace())
+}
+
+/// Whether the authority of a `http://` address is the developer's own machine.
+fn is_loopback(rest: &str) -> bool {
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host = authority.split(':').next().unwrap_or_default();
+    matches!(host, "127.0.0.1" | "localhost" | "[::1]")
+}
+
 /// Whether `url` is safe to hand to the system browser from untrusted text (release notes):
 /// `https` only, a host, no user-info, no spaces or control characters.
 pub fn safe_web_link(url: &str) -> bool {
@@ -201,11 +231,11 @@ fn truncate(s: &str, max: usize) -> String {
 mod tests {
     use super::*;
 
-    const REPO: &str = "storytold/photocraft";
+    const REPO: &str = "bd-tecnologia/photocraft";
 
     #[test]
     fn only_plain_https_links_pass() {
-        assert!(safe_web_link("https://github.com/storytold/photocraft/releases/tag/v1"));
+        assert!(safe_web_link("https://github.com/bd-tecnologia/photocraft/releases/tag/v1"));
         for bad in [
             "http://example.com/",
             "javascript:alert(1)",
@@ -224,7 +254,7 @@ mod tests {
 
     fn api_json(url: &str) -> String {
         format!(
-            r#"{{"tag_name":"v0.5.0","name":"PhotoCraft v0.5.0","html_url":"https://github.com/storytold/photocraft/releases/tag/v0.5.0",
+            r#"{{"tag_name":"v0.5.0","name":"PhotoCraft v0.5.0","html_url":"https://github.com/bd-tecnologia/photocraft/releases/tag/v0.5.0",
             "published_at":"2026-10-08T14:52:50Z","prerelease":false,"body":"Notes",
             "assets":[{{"name":"photocraft-0.5.0-macos-universal.dmg","size":123,"browser_download_url":"{url}","digest":"sha256:{HASH}"}}]}}"#
         )
@@ -233,7 +263,7 @@ mod tests {
     #[test]
     fn reads_the_latest_release() {
         let r = parse_github_release(
-            &api_json("https://github.com/storytold/photocraft/releases/download/v0.5.0/photocraft-0.5.0-macos-universal.dmg"),
+            &api_json("https://github.com/bd-tecnologia/photocraft/releases/download/v0.5.0/photocraft-0.5.0-macos-universal.dmg"),
             REPO,
         )
         .unwrap();
@@ -247,7 +277,8 @@ mod tests {
 
     #[test]
     fn drops_downloads_that_point_elsewhere() {
-        for url in ["https://evil.example/photocraft.dmg", "https://github.com/storytold/other/releases/download/v1/x.dmg", "javascript:alert(1)"] {
+        for url in ["https://evil.example/photocraft.dmg", "https://github.com/bd-tecnologia/other/releases/download/v1/x.dmg", "javascript:alert(1)"]
+        {
             let r = parse_github_release(&api_json(url), REPO).unwrap();
             assert!(r.assets.is_empty(), "{url}");
         }
@@ -272,11 +303,11 @@ mod tests {
     fn reads_checksums_and_redirects() {
         let sums = parse_sha256sums(&format!("{HASH}  photocraft-0.5.0-macos-universal.dmg\n{HASH} *b.zip\nnot a line\n{HASH}  ../escape\n"));
         assert_eq!(sums, [(HASH.to_string(), "photocraft-0.5.0-macos-universal.dmg".to_string()), (HASH.to_string(), "b.zip".to_string())]);
-        assert_eq!(tag_from_redirect("https://github.com/storytold/photocraft/releases/tag/v0.5.0", REPO).as_deref(), Some("v0.5.0"));
-        assert_eq!(tag_from_redirect("https://github.com/storytold/photocraft/releases", REPO), None);
-        assert_eq!(tag_from_redirect("https://evil/storytold/photocraft/releases/tag/v1", REPO), None);
+        assert_eq!(tag_from_redirect("https://github.com/bd-tecnologia/photocraft/releases/tag/v0.5.0", REPO).as_deref(), Some("v0.5.0"));
+        assert_eq!(tag_from_redirect("https://github.com/bd-tecnologia/photocraft/releases", REPO), None);
+        assert_eq!(tag_from_redirect("https://evil/bd-tecnologia/photocraft/releases/tag/v1", REPO), None);
         let r = release_from_sums(REPO, "v0.5.0", &sums);
-        assert_eq!(r.assets[0].url, "https://github.com/storytold/photocraft/releases/download/v0.5.0/photocraft-0.5.0-macos-universal.dmg");
+        assert_eq!(r.assets[0].url, "https://github.com/bd-tecnologia/photocraft/releases/download/v0.5.0/photocraft-0.5.0-macos-universal.dmg");
         assert_eq!(r.version, Some(Version::new(0, 5, 0)));
     }
 

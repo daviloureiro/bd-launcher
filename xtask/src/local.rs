@@ -3,10 +3,10 @@
 //! - `sync` pulls every app's checkout (the sibling folders of this repo), builds and packages the
 //!   ones whose version isn't in the mirror yet, and files the results under
 //!   `<mirror>/<app>/<version>/` with a `SHA256SUMS.txt`.
-//! - `serve` serves the mirror on 127.0.0.1 and answers `release_info.json` with a feed (the same
-//!   shape as ArtCraft's) written fresh from whatever is in the mirror at that moment.
+//! - `serve` serves the mirror on 127.0.0.1 and answers `catalog.json` with a catalog (the same
+//!   shape as BD's) written fresh from whatever is in the mirror at that moment.
 //!
-//! Run the launcher with `ARTCRAFT_LAUNCHER_DOWNLOAD_BASE=http://127.0.0.1:<port>/` and it installs
+//! Run the launcher with `BD_LAUNCHER_CATALOG_URL=http://127.0.0.1:<port>/catalog.json` and it installs
 //! and updates from the mirror alone.
 
 use std::collections::BTreeMap;
@@ -64,7 +64,7 @@ commands:
   status [--root <dir>] [--mirror <dir>]
                   each app's checked-out version and commit next to what's mirrored
 
-then: ARTCRAFT_LAUNCHER_DOWNLOAD_BASE=http://127.0.0.1:8787/ cargo run -p artcraft-launcher --features local-mirror
+then: BD_LAUNCHER_CATALOG_URL=http://127.0.0.1:8787/catalog.json cargo run -p bd-launcher --features local-mirror
 ";
 
 #[derive(Clone)]
@@ -186,7 +186,7 @@ fn sync(o: &Opts) -> Result<(), String> {
 fn sync_one(o: &Opts, id: &str, name: &str) -> Result<Outcome, String> {
     let repo = o.root.join(id);
     if !repo.join(".git").exists() {
-        return Ok(Outcome::Skipped(format!("no checkout at {} (git clone git@github.com:storytold/{id}.git)", repo.display())));
+        return Ok(Outcome::Skipped(format!("no checkout at {} (git clone git@github.com:bd-tecnologia/{id}.git)", repo.display())));
     }
     let mut pull_note = String::new();
     if o.pull {
@@ -421,11 +421,11 @@ fn sha256(path: &Path) -> Result<String, String> {
         .ok_or_else(|| format!("couldn't hash {}", path.display()))
 }
 
-// ---- feed ---------------------------------------------------------------------------------------
+// ---- catalog -----------------------------------------------------------------------------------
 
-/// A feed (ArtCraft's `release_info` shape) for the newest complete version of every app.
-fn feed(mirror: &Path, base: &str) -> String {
-    let now = rfc3339(unix_now());
+/// A catalog for the newest complete build of every app, in the shape the launcher reads.
+fn catalog(mirror: &Path, base: &str) -> String {
+    let now = unix_now();
     let mut apps = String::new();
     for (id, name) in APPS {
         let app_dir = mirror.join(id);
@@ -437,36 +437,30 @@ fn feed(mirror: &Path, base: &str) -> String {
         for f in &files {
             let size = std::fs::metadata(dir.join(f)).map(|m| m.len()).unwrap_or(0);
             let sha = sums.get(f).map_or_else(|| "null".into(), |h| json_str(h));
-            assets.push(format!(
-                r#"{{"name":{},"size_bytes":{size},"download_url":{},"sha256":{sha}}}"#,
-                json_str(f),
-                json_str(&format!("{base}{id}/{version}/{f}"))
-            ));
+            assets.push(format!(r#"{{"name":{},"size":{size},"sha256":{sha}}}"#, json_str(f)));
         }
         let built = std::fs::metadata(dir.join(COMPLETE)).and_then(|m| m.modified()).ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok());
-        let published = built.map_or_else(|| now.clone(), |d| rfc3339(i64::try_from(d.as_secs()).unwrap_or(0)));
+        let published = built.map_or_else(|| now, |d| i64::try_from(d.as_secs()).unwrap_or(0));
         let notes = std::fs::read_to_string(dir.join(NOTES)).unwrap_or_default();
         if !apps.is_empty() {
             apps.push(',');
         }
         let _ = write!(
             apps,
-            r#"{}:{{"name":{},"repo":{},"latest_release":{{"tag":{},"name":{},"published_at":{},"html_url":"","prerelease":false,"notes_markdown":{},"assets":[{}]}},"app_last_fetched":{}}}"#,
+            r##"{}:{{"id":{},"name":{},"tagline":{},"color":"#1876ff","icon":{},"release":{{"version":{},"tag":{},"published_at":{published},"notes":{},"base":{},"assets":[{}]}}}}"##,
+            json_str(id),
             json_str(id),
             json_str(name),
-            json_str(&format!("storytold/{id}")),
+            json_str("A local build"),
+            json_str(&format!("icons/{id}.png")),
+            json_str(&version),
             json_str(&format!("v{version}")),
-            json_str(&format!("{name} v{version} (local build)")),
-            json_str(&published),
             json_str(&notes),
+            json_str(&format!("{base}{id}/{version}/")),
             assets.join(","),
-            json_str(&now),
         );
     }
-    format!(
-        r#"{{"success":true,"release_info":{{"apps":{{{apps}}},"last_fetched":{}}},"app_renames":[],"repo_renames":[],"important_notices":{{"announcements":[],"alerts":[]}}}}"#,
-        json_str(&now)
-    )
+    format!(r#"{{"storage":{},"apps":{{{apps}}}}}"#, json_str(base))
 }
 
 fn json_str(s: &str) -> String {
@@ -553,8 +547,8 @@ fn serve(o: &Opts) -> Result<(), String> {
     let listener = TcpListener::bind(("127.0.0.1", o.port)).map_err(|e| format!("couldn't listen on 127.0.0.1:{} ({e})", o.port))?;
     let base = format!("http://127.0.0.1:{}/", o.port);
     println!("serving {} at {base}", o.mirror.display());
-    println!("feed:    {base}release_info.json");
-    println!("launch:  ARTCRAFT_LAUNCHER_DOWNLOAD_BASE={base} cargo run -p artcraft-launcher --features local-mirror");
+    println!("catalog: {base}catalog.json");
+    println!("launch:  BD_LAUNCHER_DOWNLOAD_BASE={base} cargo run -p bd-launcher --features local-mirror");
     if let Some(every) = o.sync_every {
         // Syncs run one after another on their own thread, so a long build never holds up a
         // download; a version only joins the feed once its build is complete.
@@ -606,8 +600,8 @@ fn handle(stream: TcpStream, mirror: &Path, base: &str) -> Result<(), String> {
     }
     let path = target.split(['?', '#']).next().unwrap_or("").trim_start_matches('/');
     eprintln!("{method} /{path}");
-    if path == "release_info.json" {
-        return respond(&mut out, "200 OK", "application/json", feed(mirror, base).as_bytes(), head);
+    if path == "catalog.json" {
+        return respond(&mut out, "200 OK", "application/json", catalog(mirror, base).as_bytes(), head);
     }
     // Only <app>/<version>/<file>, and only plain names: nothing outside the mirror.
     let segments: Vec<&str> = path.split('/').collect();
@@ -698,7 +692,7 @@ mod tests {
     }
 
     #[test]
-    fn writes_a_feed_the_launcher_reads() {
+    fn writes_a_catalog_the_launcher_reads() {
         let mirror = std::env::temp_dir().join(format!("xtask-local-{}", std::process::id()));
         let dir = mirror.join("photocraft").join("0.6.0");
         std::fs::create_dir_all(&dir).unwrap();
@@ -708,11 +702,12 @@ mod tests {
         // Unfinished builds are invisible.
         std::fs::create_dir_all(mirror.join("photocraft").join("0.7.0")).unwrap();
         std::fs::write(dir.join(COMPLETE), "").unwrap();
-        let json = feed(&mirror, "http://127.0.0.1:8787/");
+        let json = catalog(&mirror, "http://127.0.0.1:8787/");
         let _ = std::fs::remove_dir_all(&mirror);
         assert!(json.contains(r#""tag":"v0.6.0""#), "{json}");
-        assert!(json.contains(r#""download_url":"http://127.0.0.1:8787/photocraft/0.6.0/photocraft-0.6.0-macos-aarch64.dmg""#));
-        assert!(json.contains(r#""size_bytes":3"#) && json.contains(&"ab".repeat(32)));
+        assert!(json.contains(r#""base":"http://127.0.0.1:8787/photocraft/0.6.0/""#), "{json}");
+        assert!(json.contains(r#""name":"photocraft-0.6.0-macos-aarch64.dmg""#), "{json}");
+        assert!(json.contains(r#""size":3"#) && json.contains(&"ab".repeat(32)));
         assert!(json.contains(r#"Built \"locally\".\n"#));
         assert!(!json.contains("0.7.0"));
     }

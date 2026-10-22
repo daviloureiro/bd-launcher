@@ -3,7 +3,7 @@
 # exports VERSION and NFPM_ARCH.
 #
 #   nfpm package -f packaging/linux/nfpm.yaml -p deb -t dist/release/
-name: artcraft-launcher
+name: bd-launcher
 arch: ${NFPM_ARCH}
 platform: linux
 version: ${VERSION}
@@ -12,13 +12,13 @@ version_schema: semver
 release: 1
 section: utils
 priority: optional
-maintainer: ${ARTCRAFT_LAUNCHER_MAINTAINER}
-vendor: Learning Machines LLC
-homepage: https://github.com/storytold/craft-launcher
+maintainer: ${BD_LAUNCHER_MAINTAINER}
+vendor: BD Tecnologia
+homepage: https://github.com/bd-tecnologia/bd-launcher
 license: MIT OR Apache-2.0
 description: |-
-  Install, update and launch the Craft App Suite.
-  ArtCraft Launcher lists PhotoCraft, LightCraft, FilmCraft, DesignCraft,
+  Install, update and launch the BD Apps.
+  BD Launcher lists PhotoCraft, LightCraft, FilmCraft, DesignCraft,
   VectorCraft, PdfCraft, EffectCraft, WordCraft, DeckCraft, GridCraft, CADCraft,
   SoundCraft and FigCraft, installs the right build for this computer and keeps
   them up to date from GitHub releases. It can live in the system tray.
@@ -65,8 +65,8 @@ overrides:
       - xdg-desktop-portal
 
 contents:
-  - src: ${STAGE}/usr/bin/artcraft-launcher
-    dst: /usr/bin/artcraft-launcher
+  - src: ${STAGE}/usr/bin/bd-launcher
+    dst: /usr/bin/bd-launcher
     file_info: { mode: 0755 }
   - src: ${STAGE}/usr/share/
     dst: /usr/share/

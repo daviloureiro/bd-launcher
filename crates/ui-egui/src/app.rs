@@ -2,12 +2,12 @@
 
 use std::time::Duration;
 
-use artcraft_launcher_core::protocol::{
+use bd_launcher_core::Platform;
+use bd_launcher_core::protocol::{
     Backend, BackendOptions, CANCELLED, Capabilities, Command, Event, INSTALL_CANCELLED, JobPhase, LatestRelease, PAUSED, Source,
 };
-use artcraft_launcher_core::release::Release;
-use artcraft_launcher_core::status::AppStatus;
-use artcraft_launcher_core::{Platform, SUITE};
+use bd_launcher_core::release::Release;
+use bd_launcher_core::status::AppStatus;
 
 use crate::i18n::set_current;
 use crate::model::AppEntry;
@@ -63,7 +63,7 @@ pub trait Host {
     }
     /// The URL to open when Discord is clicked. Defaults to the web link.
     fn discord_url(&self) -> &'static str {
-        artcraft_launcher_core::catalog::DISCORD_URL
+        bd_launcher_core::catalog::DISCORD_URL
     }
     /// Quit the launcher for real (not just hide to the tray).
     fn quit(&mut self) {}
@@ -82,7 +82,7 @@ pub(crate) enum Dialog {
     Install { app: String, folder: String },
     Replace { app: String, path: String },
     Settings,
-    LauncherUpdate(artcraft_launcher_core::Release),
+    LauncherUpdate(bd_launcher_core::Release),
 }
 
 impl Dialog {
@@ -111,13 +111,19 @@ pub struct LauncherUi {
     pub(crate) rate_limited_until: Option<i64>,
     pub(crate) launcher_update: Option<Release>,
     /// The launcher's own update, while it downloads and installs.
-    pub(crate) launcher_job: Option<artcraft_launcher_core::protocol::JobPhase>,
+    pub(crate) launcher_job: Option<bd_launcher_core::protocol::JobPhase>,
     /// The new launcher is in place: quit so it can start.
     restart_requested: bool,
-    /// News from ArtCraft's release feed, shown inline until dismissed.
-    pub(crate) announcements: Vec<artcraft_launcher_core::feed::Notice>,
-    /// Alerts from the feed, shown as popups until acknowledged.
-    pub(crate) alerts: Vec<artcraft_launcher_core::feed::Notice>,
+    /// News from the catalog, shown inline until dismissed.
+    pub(crate) announcements: Vec<bd_launcher_core::catalog::Notice>,
+    /// BD's social accounts, as the catalog names them. Empty when the catalog doesn't say.
+    pub(crate) social: Vec<bd_launcher_core::catalog::SocialLink>,
+    /// Alerts from the catalog, shown as popups until acknowledged.
+    pub(crate) alerts: Vec<bd_launcher_core::catalog::Notice>,
+    /// The apps' icons, as the backend sent them.
+    pub(crate) app_icons: std::collections::HashMap<String, std::sync::Arc<[u8]>>,
+    /// Why the catalog couldn't be read, when it couldn't.
+    pub(crate) catalog_error: Option<String>,
     pub(crate) search: String,
     pub(crate) toasts: Vec<Toast>,
     pub(crate) dialog: Option<Dialog>,
@@ -186,7 +192,7 @@ impl LauncherUi {
         Self {
             backend,
             settings,
-            entries: SUITE.iter().map(AppEntry::new).collect(),
+            entries: Vec::new(),
             caps,
             platform,
             checking: false,
@@ -196,7 +202,10 @@ impl LauncherUi {
             launcher_job: None,
             restart_requested: false,
             announcements: Vec::new(),
+            social: Vec::new(),
             alerts: Vec::new(),
+            app_icons: std::collections::HashMap::new(),
+            catalog_error: None,
             search: String::new(),
             toasts: Vec::new(),
             dialog: None,
@@ -217,7 +226,7 @@ impl LauncherUi {
             last_detect: 0,
             was_focused: true,
             auto_update_attempted: std::collections::BTreeSet::new(),
-            discord_url: artcraft_launcher_core::catalog::DISCORD_URL,
+            discord_url: bd_launcher_core::catalog::DISCORD_URL,
         }
     }
 
@@ -296,9 +305,9 @@ impl LauncherUi {
 
     pub(crate) fn custom_install_folders(&self) -> bool {
         self.caps.manage_apps
-            && self.platform.is_some_and(|p| {
-                matches!(p.os, artcraft_launcher_core::Os::Windows | artcraft_launcher_core::Os::MacOs | artcraft_launcher_core::Os::Linux)
-            })
+            && self
+                .platform
+                .is_some_and(|p| matches!(p.os, bd_launcher_core::Os::Windows | bd_launcher_core::Os::MacOs | bd_launcher_core::Os::Linux))
             && !crate::settings::is_flatpak_sandbox()
     }
 
@@ -359,6 +368,20 @@ impl LauncherUi {
     /// Returns whether app state changed.
     fn handle(&mut self, ctx: &egui::Context, event: Event) -> bool {
         match event {
+            Event::Catalog(catalog) => {
+                self.set_catalog(catalog);
+                true
+            }
+            Event::CatalogFailed(why) => {
+                self.catalog_error = Some(why);
+                true
+            }
+            Event::Icon { app, result } => {
+                if let Ok(bytes) = result {
+                    self.app_icons.insert(app, bytes.into());
+                }
+                true
+            }
             Event::Latest { app, latest, from } => {
                 if let Some(e) = self.entry_mut(&app) {
                     // A failed check keeps the release we already know about (and where it came from).
@@ -381,7 +404,7 @@ impl LauncherUi {
                 true
             }
             Event::Progress { app, phase } => {
-                if app == artcraft_launcher_core::catalog::LAUNCHER_ID {
+                if app == bd_launcher_core::catalog::LAUNCHER_ID {
                     self.launcher_job = Some(phase);
                     if matches!(self.dialog, Some(Dialog::LauncherUpdate(_))) {
                         self.dialog = None;
@@ -417,7 +440,7 @@ impl LauncherUi {
                 false
             }
             Event::JobFinished { app, result } => {
-                let launcher = app == artcraft_launcher_core::catalog::LAUNCHER_ID;
+                let launcher = app == bd_launcher_core::catalog::LAUNCHER_ID;
                 // What the job was doing when it ended says what a cancellation called off.
                 let last = if launcher { self.launcher_job.take() } else { self.entry(&app).and_then(|e| e.job) };
                 if let Some(e) = self.entry_mut(&app) {
@@ -471,6 +494,45 @@ impl LauncherUi {
         }
     }
 
+    /// The catalog arrived: the list of apps is rebuilt, keeping what the UI already knows about
+    /// the ones that stay (their version, whether they are installed, a running job).
+    fn set_catalog(&mut self, catalog: bd_launcher_core::Catalog) {
+        self.catalog_error = None;
+        // The catalog names the social accounts; the built-in list is the fallback.
+        self.social = catalog.social.clone();
+        let mut entries = Vec::with_capacity(catalog.apps.len());
+        for app in catalog.apps {
+            let entry = match self.entries.iter().find(|e| e.app.id == app.id) {
+                Some(old) => AppEntry { app, ..old.clone() },
+                None => AppEntry::new(app),
+            };
+            entries.push(entry);
+        }
+        self.entries = entries;
+        // The icons of the apps that are new here are asked for.
+        let wanted: Vec<String> =
+            self.entries.iter().filter(|e| !e.app.icon.is_empty() && !self.app_icons.contains_key(&e.app.id)).map(|e| e.app.id.clone()).collect();
+        for id in wanted {
+            self.send(Command::FetchIcon { app: id });
+        }
+    }
+
+    /// The app's icon, as the backend sent it.
+    pub(crate) fn app_icon(&self, id: &str) -> Option<std::sync::Arc<[u8]>> {
+        self.app_icons.get(id).cloned()
+    }
+
+    /// The app's icon as an image, for the places that want one.
+    pub(crate) fn app_icon_image(&self, id: &str) -> Option<egui::ImageSource<'static>> {
+        let bytes = self.app_icons.get(id)?;
+        Some(egui::ImageSource::Bytes { uri: format!("bytes://app-icons/{id}").into(), bytes: egui::load::Bytes::Shared(bytes.clone()) })
+    }
+
+    /// The app's details page, when the catalog carries one.
+    pub(crate) fn app_details(&self, id: &str) -> Option<bd_launcher_core::catalog::AppDetails> {
+        self.entry(id).and_then(|e| e.app.details.clone())
+    }
+
     /// One notification per new version of an installed app.
     fn announce_updates(&mut self, host: &mut dyn Host) {
         let mut fresh = Vec::new();
@@ -479,8 +541,8 @@ impl LauncherUi {
                 continue;
             }
             let Some(v) = e.latest_label() else { continue };
-            if self.settings.notified.get(e.app.id) != Some(&v) {
-                fresh.push((e.app.id, e.app.name, v));
+            if self.settings.notified.get(&e.app.id) != Some(&v) {
+                fresh.push((e.app.id.clone(), e.app.name.clone(), v));
             }
         }
         if fresh.is_empty() {
@@ -489,7 +551,7 @@ impl LauncherUi {
         if self.settings.notify {
             let (title, body) = match fresh.as_slice() {
                 [(_, name, v)] => {
-                    let body: String = tl!("Open ArtCraft Launcher to update.").to_string();
+                    let body: String = tl!("Open BD Launcher to update.").to_string();
                     (crate::i18n::fmt(tl!("{name} {v} is available"), &[("name", name), ("v", v)]), body)
                 }
                 many => {
@@ -527,7 +589,7 @@ impl LauncherUi {
             && let Some(r) = &self.launcher_update
             && self.launcher_job.is_none()
         {
-            let id = artcraft_launcher_core::catalog::LAUNCHER_ID.to_string();
+            let id = bd_launcher_core::catalog::LAUNCHER_ID.to_string();
             let v = r.version_label();
             if !self.auto_update_attempted.contains(&(id.clone(), v.clone())) {
                 log::info!("auto-update: queuing launcher self-update to {v}");
@@ -626,7 +688,13 @@ impl LauncherUi {
                     if ids.is_empty() {
                         ui.add_space(40.0);
                         ui.vertical_centered(|ui| {
-                            crate::widgets::hud(ui, tl!("No apps match"), tokens.muted);
+                            if let Some(why) = &self.catalog_error {
+                                crate::widgets::hud(ui, tl!("The app list couldn't be loaded"), tokens.muted);
+                                ui.add_space(6.0);
+                                crate::widgets::hud(ui, why, tokens.faint);
+                            } else {
+                                crate::widgets::hud(ui, tl!("No apps match"), tokens.muted);
+                            }
                         });
                     } else {
                         match self.settings.view {
@@ -646,7 +714,7 @@ impl LauncherUi {
     }
 
     /// The ids to show, filtered and sorted.
-    pub(crate) fn visible_ids(&self) -> Vec<&'static str> {
+    pub(crate) fn visible_ids(&self) -> Vec<String> {
         let needle = self.search.trim().to_lowercase();
         let mut list: Vec<(usize, &AppEntry)> = self
             .entries
@@ -675,7 +743,7 @@ impl LauncherUi {
         list.sort_by(|(ia, a), (ib, b)| {
             let ord = match sort {
                 SortKey::Suite => dir(ia.cmp(ib)),
-                SortKey::Name => dir(a.app.name.cmp(b.app.name)),
+                SortKey::Name => dir(a.app.name.cmp(&b.app.name)),
                 SortKey::Status => {
                     dir(crate::model::status_rank(&a.status(platform, manage)).cmp(&crate::model::status_rank(&b.status(platform, manage))))
                 }
@@ -688,7 +756,7 @@ impl LauncherUi {
                     opt(x.as_ref().zip(y.as_ref()).map(|(x, y)| x.cmp_precedence(y)), x.is_some(), y.is_some())
                 }
                 SortKey::Frequent => {
-                    let opened = |e: &AppEntry| self.settings.launches.get(e.app.id).copied().unwrap_or(0);
+                    let opened = |e: &AppEntry| self.settings.launches.get(&e.app.id).copied().unwrap_or(0);
                     dir(opened(a).cmp(&opened(b)))
                 }
                 SortKey::Released => {
@@ -705,7 +773,7 @@ impl LauncherUi {
         if grid {
             list.sort_by_key(|(_, e)| !e.status(platform, manage).is_installed());
         }
-        list.into_iter().map(|(_, e)| e.app.id).collect()
+        list.into_iter().map(|(_, e)| e.app.id.clone()).collect()
     }
 
     /// Opens an app, and counts it for "Frequently used".
@@ -720,24 +788,24 @@ impl LauncherUi {
         self.entry(id).is_some_and(|e| e.status(self.platform, self.caps.manage_apps).is_installed())
     }
 
-    /// "ArtCraft API", "GitHub" or "ArtCraft API and GitHub": the services behind the releases on
-    /// screen right now. `None` until something has loaded.
+    /// "BD catalog", "GitHub" or both: the services behind the releases on screen right now.
+    /// `None` until something has loaded.
     pub(crate) fn sources_label(&self) -> Option<String> {
-        use artcraft_launcher_core::protocol::Origin;
+        use bd_launcher_core::protocol::Origin;
         let mut api = false;
         let mut github = false;
         for e in &self.entries {
             if matches!(e.latest, Some(LatestRelease::Found(_) | LatestRelease::None)) {
                 match e.origin {
-                    Some(Origin::ArtCraftApi) => api = true,
+                    Some(Origin::Catalog) => api = true,
                     Some(Origin::GitHub) => github = true,
                     None => {}
                 }
             }
         }
         match (api, github) {
-            (true, true) => Some(crate::i18n::fmt(tl!("{a} and {b}"), &[("a", Origin::ArtCraftApi.label()), ("b", Origin::GitHub.label())])),
-            (true, false) => Some(Origin::ArtCraftApi.label().to_string()),
+            (true, true) => Some(crate::i18n::fmt(tl!("{a} and {b}"), &[("a", Origin::Catalog.label()), ("b", Origin::GitHub.label())])),
+            (true, false) => Some(Origin::Catalog.label().to_string()),
             (false, true) => Some(Origin::GitHub.label().to_string()),
             (false, false) => None,
         }
@@ -749,7 +817,7 @@ impl LauncherUi {
 
     /// Whether `entry` belongs in `filter`. Hidden apps stay out of every list except Hidden.
     pub(crate) fn in_filter(&self, entry: &AppEntry, filter: Filter) -> bool {
-        let hidden = self.settings.hidden.contains(entry.app.id);
+        let hidden = self.settings.hidden.contains(&entry.app.id);
         let status = entry.status(self.platform, self.caps.manage_apps);
         match filter {
             Filter::Hidden => hidden,

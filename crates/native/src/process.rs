@@ -176,7 +176,7 @@ pub fn is_discord_installed() -> bool {
 /// The URL to use for Discord links: deep-links to the app if a handler is registered,
 /// else the web invite. Non-blocking (detection runs in the background).
 pub fn discord_url() -> &'static str {
-    if is_discord_installed() { artcraft_launcher_core::catalog::DISCORD_APP_URL } else { artcraft_launcher_core::catalog::DISCORD_URL }
+    if is_discord_installed() { bd_launcher_core::catalog::DISCORD_APP_URL } else { bd_launcher_core::catalog::DISCORD_URL }
 }
 
 #[cfg(windows)]
@@ -482,7 +482,7 @@ mod tests {
 
     #[test]
     fn running_paths_are_matched_literally() {
-        let root = format!("/tmp/artcraft-launcher-process-{}", std::process::id());
+        let root = format!("/tmp/bd-launcher-process-{}", std::process::id());
         for (actual, requested, expected) in [
             ("plain/PhotoCraft.app", "plain/PhotoCraft.app", true),
             ("Apps (work)/PhotoCraft.app", "Apps (work)/PhotoCraft.app", true),
@@ -567,8 +567,8 @@ mod explorer_tests {
 
     #[test]
     fn explorer_select_uses_backslashes() {
-        let arg = explorer_select_arg(Path::new("C:/Users/A B/AppData/Local/ArtCraft Launcher/apps/photocraft.exe"));
-        assert_eq!(arg.unwrap(), r#"/select,"C:\Users\A B\AppData\Local\ArtCraft Launcher\apps\photocraft.exe""#);
+        let arg = explorer_select_arg(Path::new("C:/Users/A B/AppData/Local/BD Launcher/apps/photocraft.exe"));
+        assert_eq!(arg.unwrap(), r#"/select,"C:\Users\A B\AppData\Local\BD Launcher\apps\photocraft.exe""#);
     }
 }
 
@@ -597,7 +597,7 @@ mod discord_tests {
 
     #[test]
     fn discord_url_gives_app_or_web_url() {
-        use artcraft_launcher_core::catalog::{DISCORD_APP_URL, DISCORD_URL};
+        use bd_launcher_core::catalog::{DISCORD_APP_URL, DISCORD_URL};
         let url = discord_url();
         assert!(url == DISCORD_URL || url == DISCORD_APP_URL);
     }

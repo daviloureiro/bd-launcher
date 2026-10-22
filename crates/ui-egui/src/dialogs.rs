@@ -1,8 +1,8 @@
 //! Modal dialogs: release notes, uninstall confirmation, settings.
 
 use crate::i18n::fmt;
-use artcraft_launcher_core::Os;
-use artcraft_launcher_core::protocol::Command;
+use bd_launcher_core::Os;
+use bd_launcher_core::protocol::Command;
 use egui::{RichText, vec2};
 
 use crate::app::{Dialog, Host, LauncherUi};
@@ -102,7 +102,7 @@ impl LauncherUi {
         ui.set_width(size.x);
         ui.set_max_height(size.y);
         let date = release.published_at.map(|d| fmt(tl!("Released {date}"), &[("date", &crate::views::date_text(d))])).unwrap_or_default();
-        let hero_h = crate::sheet::hero(ui, crate::icons::app(id), &format!("{} {}", entry.app.name, release.version_label()), &date, |_| {});
+        let hero_h = crate::sheet::hero(ui, self.app_icon_image(id), &format!("{} {}", entry.app.name, release.version_label()), &date, |_| {});
         let footer_h = theme::CONTROL_H + 32.0;
         let body_h = (size.y - hero_h - footer_h - 2.0).max(0.0);
         let saved = crate::sheet::accent_scroll(ui, &t, t.accent);
@@ -131,11 +131,11 @@ impl LauncherUi {
         close
     }
 
-    fn launcher_update_dialog(&mut self, ui: &mut egui::Ui, r: &artcraft_launcher_core::Release) -> bool {
+    fn launcher_update_dialog(&mut self, ui: &mut egui::Ui, r: &bd_launcher_core::Release) -> bool {
         let t = Tokens::get(ui.ctx());
         ui.set_width(480.0f32.min(ui.ctx().content_rect().width() - 80.0));
-        let title = fmt(tl!("ArtCraft Launcher {version} is available."), &[("version", &r.version_label())]);
-        Self::title(ui, Some(crate::icons::artcraft_mark()), &title, "");
+        let title = fmt(tl!("BD Launcher {version} is available."), &[("version", &r.version_label())]);
+        Self::title(ui, Some(crate::icons::bd_mark_blue()), &title, "");
         let message = if self.caps.self_update {
             tl!("A new version is available. Would you like to relaunch with the updated version?")
         } else {
@@ -177,17 +177,15 @@ impl LauncherUi {
         let Some(entry) = self.entry(id).cloned() else { return true };
         let t = Tokens::get(ui.ctx());
         ui.set_width(420.0);
-        Self::title(ui, crate::icons::app(id), &fmt(tl!("Uninstall {name}?"), &[("name", entry.app.name)]), "");
+        Self::title(ui, self.app_icon_image(id), &fmt(tl!("Uninstall {name}?"), &[("name", &entry.app.name)]), "");
         let how = match entry.installed.as_ref().map(|i| i.source) {
-            Some(artcraft_launcher_core::InstallSource::MacApp) => tl!("The app will be moved to the Trash. Your documents and settings stay."),
-            Some(artcraft_launcher_core::InstallSource::Msi) => {
+            Some(bd_launcher_core::InstallSource::MacApp) => tl!("The app will be moved to the Trash. Your documents and settings stay."),
+            Some(bd_launcher_core::InstallSource::Msi) => {
                 tl!("Windows will remove it like any installed program. Your documents and settings stay.")
             }
-            Some(
-                artcraft_launcher_core::InstallSource::Deb
-                | artcraft_launcher_core::InstallSource::Rpm
-                | artcraft_launcher_core::InstallSource::Pacman,
-            ) => tl!("Your system's package manager will remove it, and may ask for your password. Your documents and settings stay."),
+            Some(bd_launcher_core::InstallSource::Deb | bd_launcher_core::InstallSource::Rpm | bd_launcher_core::InstallSource::Pacman) => {
+                tl!("Your system's package manager will remove it, and may ask for your password. Your documents and settings stay.")
+            }
             _ => tl!("The app will be removed. Your documents and settings stay."),
         };
         ui.label(RichText::new(how).color(t.muted));
@@ -209,12 +207,12 @@ impl LauncherUi {
     }
 
     fn replace_dialog(&mut self, ui: &mut egui::Ui, id: &str, path: &str) -> bool {
-        let Some(app) = self.entry(id).map(|e| e.app) else { return true };
+        let Some(app) = self.entry(id).map(|e| e.app.clone()) else { return true };
         let t = Tokens::get(ui.ctx());
         ui.set_width(440.0f32.min(ui.ctx().content_rect().width() - 80.0));
-        Self::title(ui, crate::icons::app(id), tl!("Replace what's there?"), "");
+        Self::title(ui, self.app_icon_image(id), tl!("Replace what's there?"), "");
         ui.label(
-            RichText::new(fmt(tl!("{path} already exists. Installing {name} will overwrite it."), &[("path", path), ("name", app.name)]))
+            RichText::new(fmt(tl!("{path} already exists. Installing {name} will overwrite it."), &[("path", path), ("name", &app.name)]))
                 .color(t.muted),
         );
         ui.add_space(20.0);
@@ -234,9 +232,9 @@ impl LauncherUi {
     }
 
     fn install_dialog(&mut self, ui: &mut egui::Ui, id: &str, folder: &mut String, host: &mut dyn Host) -> bool {
-        let Some(app) = self.entry(id).map(|e| e.app) else { return true };
+        let Some(app) = self.entry(id).map(|e| e.app.clone()) else { return true };
         ui.set_width(440.0f32.min(ui.ctx().content_rect().width() - 80.0));
-        Self::title(ui, None, app.name, tl!("Install folder"));
+        Self::title(ui, None, &app.name, tl!("Install folder"));
         let default = self.settings.install_locations.root.as_deref().unwrap_or(tl!("System default"));
         Self::folder_field(ui, folder, Some(default), host);
         if self.platform.is_some_and(|p| p.os == Os::Linux) {

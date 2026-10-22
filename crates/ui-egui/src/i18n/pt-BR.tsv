@@ -1,4 +1,4 @@
-# Brazilian Portuguese (pt-BR) catalog for ArtCraft Launcher.
+# Brazilian Portuguese (pt-BR) catalog for BD Launcher.
 # Format: context<TAB>source<TAB>translation
 # Empty context = plain UI string (tl!, t).
 # @id = command-id keyed (tr_id).
@@ -7,7 +7,7 @@
 # Other context = disambiguation for tr_ctx.
 
 	Launcher	Launcher
-	Craft App Suite	Craft App Suite
+	BD Apps	BD Apps
 	Open Source Tools for Creatives, Makers, and Builders	Ferramentas de código aberto para criadores, artistas e desenvolvedores
 	Settings	Configurações
 	Check for updates	Verificar atualizações
@@ -61,7 +61,7 @@
 	Reinstall	Reinstalar
 	Uninstall…	Desinstalar…
 	All releases	Todos os lançamentos
-	ArtCraft Launcher {version} is available.	ArtCraft Launcher {version} está disponível.
+	BD Launcher {version} is available.	BD Launcher {version} está disponível.
 	Dismiss	Dispensar
 	Update and restart	Atualizar e reiniciar
 	A new version is available. Would you like to relaunch with the updated version?	Uma nova versão está disponível. Reiniciar com a nova versão?
@@ -72,7 +72,7 @@
 	Released {date}	Lançado em {date}
 	Open on GitHub	Abrir no GitHub
 	Close	Fechar
-	ArtCraft Launcher {version}	ArtCraft Launcher {version}
+	BD Launcher {version}	BD Launcher {version}
 	Only when I ask	Apenas quando eu pedir
 	Automatically download and install updates	Baixar e instalar atualizações automaticamente
 	Notify me when an installed app has an update	Notificar quando um aplicativo instalado tiver atualização
@@ -85,11 +85,11 @@
 	Running in the background	Execução em segundo plano
 	Keep running in the tray when the window is closed	Continuar na bandeja do sistema ao fechar a janela
 	Show the window on the current desktop	Mostrar a janela na área de trabalho atual
-	Start ArtCraft Launcher when I log in	Iniciar o ArtCraft Launcher ao fazer login
+	Start BD Launcher when I log in	Iniciar o BD Launcher ao fazer login
 	Community	Comunidade
-	Questions, ideas and news from the ArtCraft team	Dúvidas, ideias e novidades da equipe ArtCraft
+	Questions, ideas and news from the BD team	Dúvidas, ideias e novidades da equipe BD
 	Appearance	Aparência
-	Quit ArtCraft Launcher	Sair do ArtCraft Launcher
+	Quit BD Launcher	Sair do BD Launcher
 	Done	Concluído
 	Uninstall {name}?	Desinstalar {name}?
 	The app will be moved to the Trash. Your documents and settings stay.	O aplicativo será movido para a Lixeira. Seus documentos e configurações serão mantidos.
@@ -124,7 +124,7 @@
 	Open link	Abrir link
 	Update	Atualizar
 	{name} icon	Ícone do {name}
-	Loading ArtCraft Launcher…	Carregando ArtCraft Launcher…
+	Loading BD Launcher…	Carregando BD Launcher…
 	Cancel update	Cancelar atualização
 	Stop waiting; the update can be started again later	Parar de aguardar; a atualização pode ser iniciada novamente depois
 	Download again	Baixar novamente
@@ -182,8 +182,8 @@ month	Dec	dez.
 	Installing for {platform}	Instalando para {platform}
 	Downloads for {platform}	Downloads para {platform}
 	No downloads for this system	Nenhum download disponível para este sistema
-	Join the ArtCraft community on Discord	Entre na comunidade ArtCraft no Discord
-	ArtCraft on {name}	ArtCraft no {name}
+	Join the BD community on Discord	Entre na comunidade BD no Discord
+	BD on {name}	BD no {name}
 	Couldn't open {name}: {e}	Não foi possível abrir {name}: {e}
 	Download cancelled	Download cancelado
 	Available to install	Disponível para instalar
@@ -203,7 +203,7 @@ month	Dec	dez.
 	Version {version} installed	Versão {version} instalada
 	Version {latest}	Versão {latest}
 	No release published yet	Nenhum lançamento publicado ainda
-	ArtCraft Launcher	ArtCraft Launcher
+	BD Launcher	BD Launcher
 	App	Aplicativo
 	Latest	Última
 	Released	Lançado
@@ -224,7 +224,7 @@ month	Dec	dez.
 	Downloads the new version, replaces this one and opens it again	Baixa a nova versão, substitui a atual e abre novamente
 	Couldn't check for updates: {f}	Não foi possível verificar atualizações: {f}
 	GitHub repository	Repositório no GitHub
-	ArtCraft	ArtCraft
+	BD	BD
 	Update 1 app	Atualizar 1 aplicativo
 	Update all ({count})	Atualizar todos ({count})
 	⊞  Grid	⊞  Grade
@@ -237,7 +237,7 @@ month	Dec	dez.
 	Full changelog	Histórico completo de alterações
 	link	link
 	No apps match	Nenhum aplicativo encontrado
-	Open ArtCraft Launcher to update.	Abra o ArtCraft Launcher para atualizar.
+	Open BD Launcher to update.	Abra o BD Launcher para atualizar.
 	{name} {v} is available	{name} {v} está disponível
 	{count} updates are available	{count} atualizações estão disponíveis
 	These notes weren't fetched (GitHub's request limit was reached). They're on the release page.	Estas notas não foram carregadas (o limite de requisições do GitHub foi atingido). Elas estão na página de lançamentos.
@@ -292,7 +292,7 @@ filter	Installed	Instalados
 @id	launcher.notes	Novidades
 @id	launcher.dismiss	Dispensar
 @id	settings.open	Configurações
-@id	settings.quit	Sair do ArtCraft Launcher
+@id	settings.quit	Sair do BD Launcher
 @id	view.grid	Grade
 @id	view.table	Tabela
 @id	filter.all	Todos
@@ -316,15 +316,15 @@ filter	Installed	Instalados
 @id	linux.preferred_kind	Instalar novos aplicativos como
 @id	tray.close_to_tray	Continuar na bandeja do sistema ao fechar a janela
 @id	tray.show_on_current_desktop	Mostrar a janela na área de trabalho atual
-@id	tray.login_item	Iniciar o ArtCraft Launcher ao fazer login
+@id	tray.login_item	Iniciar o BD Launcher ao fazer login
 @id	appearance.theme	Aparência
 
 # Tray (menu bar) menu and tooltip
-	Show ArtCraft Launcher	Mostrar ArtCraft Launcher
+	Show BD Launcher	Mostrar BD Launcher
 	Check for Updates	Verificar atualizações
-	Visit getartcraft.com	Visitar getartcraft.com
-	ArtCraft on GitHub	ArtCraft no GitHub
-	Join the ArtCraft Discord	Entrar no Discord da ArtCraft
+	Visit bdtecnologia.com.br	Visitar bdtecnologia.com.br
+	BD on GitHub	BD no GitHub
+	Join the BD Discord	Entrar no Discord da BD
 	App details	Detalhes do aplicativo
 	Close (Esc)	Fechar (Esc)
 	Features	Recursos
@@ -338,7 +338,7 @@ filter	Installed	Instalados
 	Next picture (→)	Próxima imagem (→)
 	Loading pictures…	Carregando imagens…
 	Pictures couldn't be loaded. Reopen this page to try again.	Não foi possível carregar as imagens. Abra a página novamente para tentar de novo.
-@plural	ArtCraft Launcher · {n} update available|ArtCraft Launcher · {n} updates available	ArtCraft Launcher · {n} atualização disponível|ArtCraft Launcher · {n} atualizações disponíveis
+@plural	BD Launcher · {n} update available|BD Launcher · {n} updates available	BD Launcher · {n} atualização disponível|BD Launcher · {n} atualizações disponíveis
 	Install folder	Pasta de instalação
 	Default install folder	Pasta de instalação padrão
 	System default	Padrão do sistema
@@ -351,7 +351,7 @@ filter	Installed	Instalados
 @msg	couldn't use install folder {path}: {reason}	não foi possível usar a pasta de instalação {path}: {reason}
 @msg	this release has no AppImage for a custom install folder	esta versão não tem um AppImage para uma pasta de instalação personalizada
 @msg	custom install folders aren't supported on this system	pastas de instalação personalizadas não são compatíveis com este sistema
-@msg	{path} already exists and wasn't installed by ArtCraft Launcher	{path} já existe e não foi instalado pelo ArtCraft Launcher
+@msg	{path} already exists and wasn't installed by BD Launcher	{path} já existe e não foi instalado pelo BD Launcher
 @msg	couldn't move {path} to Trash ({reason}). Remove it in Finder instead.	não foi possível mover {path} para o Lixo ({reason}). Remova-o pelo Finder.
 	Apps are placed inside this folder.	Os aplicativos são colocados dentro desta pasta.
 	Replace what's there?	Substituir o que já existe?
@@ -366,3 +366,4 @@ filter	Installed	Instalados
 	Show {n} more changes	Mostrar mais {n} alterações
 	Last updated: {date}	Última atualização: {date}
 column	Version	Versão
+	The app list couldn't be loaded	Não foi possível carregar a lista de aplicativos

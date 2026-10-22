@@ -1,4 +1,4 @@
-# Czech (cs) catalog for ArtCraft Launcher.
+# Czech (cs) catalog for BD Launcher.
 # Format: context<TAB>source<TAB>translation
 # Empty context = plain UI string (tl!, t). @id = command-id keyed. @plural = one|few|other.
 # @msg = status/error message template. Other context = disambiguation for tr_ctx.
@@ -6,7 +6,7 @@
 # Product and app names, shortcuts, units, file formats, placeholders and trailing ellipses are kept.
 
 	Launcher	Launcher
-	Craft App Suite	Craft App Suite
+	BD Apps	BD Apps
 	Open Source Tools for Creatives, Makers, and Builders	Open-source nástroje pro kreativce, tvůrce a vývojáře
 	Settings	Nastavení
 	Check for updates	Zkontrolovat aktualizace
@@ -60,7 +60,7 @@
 	Reinstall	Znovu nainstalovat
 	Uninstall…	Odinstalovat…
 	All releases	Všechna vydání
-	ArtCraft Launcher {version} is available.	Je k dispozici ArtCraft Launcher {version}.
+	BD Launcher {version} is available.	Je k dispozici BD Launcher {version}.
 	Dismiss	Skrýt
 	Update and restart	Aktualizovat a restartovat
 	A new version is available. Would you like to relaunch with the updated version?	Je k dispozici nová verze. Chcete aplikaci znovu spustit s aktualizovanou verzí?
@@ -71,7 +71,7 @@
 	Released {date}	Vydáno {date}
 	Open on GitHub	Otevřít na GitHubu
 	Close	Zavřít
-	ArtCraft Launcher {version}	ArtCraft Launcher {version}
+	BD Launcher {version}	BD Launcher {version}
 	Only when I ask	Pouze na vyžádání
 	Automatically download and install updates	Automaticky stahovat a instalovat aktualizace
 	Notify me when an installed app has an update	Upozornit, když má nainstalovaná aplikace aktualizaci
@@ -84,11 +84,11 @@
 	Running in the background	Běh na pozadí
 	Keep running in the tray when the window is closed	Po zavření okna ponechat spuštěné v oznamovací oblasti
 	Show the window on the current desktop	Zobrazit okno na aktuální ploše
-	Start ArtCraft Launcher when I log in	Spouštět ArtCraft Launcher po přihlášení
+	Start BD Launcher when I log in	Spouštět BD Launcher po přihlášení
 	Community	Komunita
-	Questions, ideas and news from the ArtCraft team	Dotazy, nápady a novinky od týmu ArtCraft
+	Questions, ideas and news from the BD team	Dotazy, nápady a novinky od týmu BD
 	Appearance	Vzhled
-	Quit ArtCraft Launcher	Ukončit ArtCraft Launcher
+	Quit BD Launcher	Ukončit BD Launcher
 	Done	Hotovo
 	Uninstall {name}?	Odinstalovat {name}?
 	The app will be moved to the Trash. Your documents and settings stay.	Aplikace bude přesunuta do Koše. Vaše dokumenty a nastavení zůstanou zachovány.
@@ -122,7 +122,7 @@
 	Open link	Otevřít odkaz
 	Update	Aktualizovat
 	{name} icon	Ikona aplikace {name}
-	Loading ArtCraft Launcher…	Načítání aplikace ArtCraft Launcher…
+	Loading BD Launcher…	Načítání aplikace BD Launcher…
 	Cancel update	Zrušit aktualizaci
 	Stop waiting; the update can be started again later	Přestat čekat; aktualizaci lze spustit znovu později
 	Download again	Stáhnout znovu
@@ -174,8 +174,8 @@ month	Dec	12.
 	Installing for {platform}	Instalace pro {platform}
 	Downloads for {platform}	Stažení pro {platform}
 	No downloads for this system	Pro tento systém nejsou k dispozici žádné soubory ke stažení
-	Join the ArtCraft community on Discord	Připojit se ke komunitě ArtCraft na Discordu
-	ArtCraft on {name}	ArtCraft na {name}
+	Join the BD community on Discord	Připojit se ke komunitě BD na Discordu
+	BD on {name}	BD na {name}
 	Couldn't open {name}: {e}	{name} nelze otevřít: {e}
 	Download cancelled	Stahování zrušeno
 	Available to install	K dispozici k instalaci
@@ -195,7 +195,7 @@ month	Dec	12.
 	Version {version} installed	Nainstalována verze {version}
 	Version {latest}	Verze {latest}
 	No release published yet	Zatím nebylo zveřejněno žádné vydání
-	ArtCraft Launcher	ArtCraft Launcher
+	BD Launcher	BD Launcher
 	App	Aplikace
 	Latest	Nejnovější
 	Released	Vydáno
@@ -217,7 +217,7 @@ month	Dec	12.
 	Couldn't check for updates: {f}	Aktualizace nelze zkontrolovat: {f}
 	Website (coming soon)	Web (již brzy)
 	GitHub repository	Repozitář na GitHubu
-	ArtCraft	ArtCraft
+	BD	BD
 	Update 1 app	Aktualizovat 1 aplikaci
 	Update all ({count})	Aktualizovat vše ({count})
 	⊞  Grid	⊞  Mřížka
@@ -230,7 +230,7 @@ month	Dec	12.
 	Full changelog	Úplný přehled změn
 	link	odkaz
 	No apps match	Žádné aplikace neodpovídají hledání
-	Open ArtCraft Launcher to update.	Aktualizujte otevřením aplikace ArtCraft Launcher.
+	Open BD Launcher to update.	Aktualizujte otevřením aplikace BD Launcher.
 	{name} {v} is available	Je k dispozici {name} {v}
 	{count} updates are available	Počet dostupných aktualizací: {count}
 	These notes weren't fetched (GitHub's request limit was reached). They're on the release page.	Tyto poznámky se nepodařilo načíst (byl dosažen limit požadavků GitHubu). Najdete je na stránce vydání.
@@ -287,7 +287,7 @@ filter	Installed	Nainstalováno
 @id	launcher.notes	Co je nového
 @id	launcher.dismiss	Zavřít
 @id	settings.open	Nastavení
-@id	settings.quit	Ukončit ArtCraft Launcher
+@id	settings.quit	Ukončit BD Launcher
 @id	view.grid	Mřížka
 @id	view.table	Tabulka
 @id	filter.all	Vše
@@ -311,14 +311,14 @@ filter	Installed	Nainstalováno
 @id	linux.preferred_kind	Instalovat nové aplikace jako
 @id	tray.close_to_tray	Po zavření okna ponechat spuštěné v oznamovací oblasti
 @id	tray.show_on_current_desktop	Zobrazit okno na aktuální ploše
-@id	tray.login_item	Spouštět ArtCraft Launcher po přihlášení
+@id	tray.login_item	Spouštět BD Launcher po přihlášení
 @id	appearance.theme	Vzhled
-	Show ArtCraft Launcher	Zobrazit ArtCraft Launcher
+	Show BD Launcher	Zobrazit BD Launcher
 	Check for Updates	Zkontrolovat aktualizace
-	Visit getartcraft.com	Navštívit getartcraft.com
-	ArtCraft on GitHub	ArtCraft na GitHubu
-	Join the ArtCraft Discord	Připojit se na ArtCraft Discord
-@plural	ArtCraft Launcher · {n} update available|ArtCraft Launcher · {n} updates available	ArtCraft Launcher · {n} dostupná aktualizace|ArtCraft Launcher · {n} dostupné aktualizace|ArtCraft Launcher · {n} dostupných aktualizací
+	Visit bdtecnologia.com.br	Navštívit bdtecnologia.com.br
+	BD on GitHub	BD na GitHubu
+	Join the BD Discord	Připojit se na BD Discord
+@plural	BD Launcher · {n} update available|BD Launcher · {n} updates available	BD Launcher · {n} dostupná aktualizace|BD Launcher · {n} dostupné aktualizace|BD Launcher · {n} dostupných aktualizací
 	Install folder	Instalační složka
 	Default install folder	Výchozí instalační složka
 	System default	Výchozí nastavení systému
@@ -331,7 +331,7 @@ filter	Installed	Nainstalováno
 @msg	couldn't use install folder {path}: {reason}	instalační složku {path} nelze použít: {reason}
 @msg	this release has no AppImage for a custom install folder	toto vydání nemá AppImage pro vlastní instalační složku
 @msg	custom install folders aren't supported on this system	vlastní instalační složky nejsou v tomto systému podporovány
-@msg	{path} already exists and wasn't installed by ArtCraft Launcher	{path} již existuje a nebylo nainstalováno aplikací ArtCraft Launcher
+@msg	{path} already exists and wasn't installed by BD Launcher	{path} již existuje a nebylo nainstalováno aplikací BD Launcher
 @msg	couldn't move {path} to Trash ({reason}). Remove it in Finder instead.	{path} nelze přesunout do koše ({reason}). Odstraňte položku ve Finderu.
 	Apps are placed inside this folder.	Aplikace se umístí do této složky.
 	Replace what's there?	Nahradit, co tam je?
@@ -346,3 +346,4 @@ filter	Installed	Nainstalováno
 	Show {n} more changes	Zobrazit dalších změn: {n}
 	Last updated: {date}	Naposledy aktualizováno: {date}
 column	Version	Verze
+	The app list couldn't be loaded	Seznam aplikací se nepodařilo načíst

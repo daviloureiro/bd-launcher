@@ -1,17 +1,18 @@
-//! ArtCraft Launcher's desktop backend.
+//! BD Launcher's desktop backend.
 //!
 //! [`NativeBackend`] runs every slow thing (HTTP, scanning disks, installers) on worker threads
-//! and reports back through [`Event`](artcraft_launcher_core::protocol::Event)s, so the UI never
-//! waits on it. Release information comes from a [`source::ReleaseSource`]: GitHub today, the
-//! ArtCraft catalog API later.
+//! and reports back through [`Event`](bd_launcher_core::protocol::Event)s, so the UI never
+//! waits on it. The app list and every app's latest release come from the catalog on Firebase
+//! ([`catalog_store`]); GitHub is the fallback for apps whose releases live there.
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod backend;
+pub mod catalog_store;
 pub mod desktop_entry;
 pub mod detect;
-pub mod feed_throttle;
 pub mod http;
+pub mod icons;
 pub mod install;
 pub mod login;
 pub mod manifest;
@@ -26,6 +27,8 @@ pub mod screenshots;
 pub mod self_update;
 pub mod single_instance;
 pub mod source;
+#[cfg(test)]
+pub mod testing;
 
 pub use backend::NativeBackend;
 

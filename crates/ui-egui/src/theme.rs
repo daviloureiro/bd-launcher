@@ -1,4 +1,4 @@
-//! Colours, type and shapes, matching getartcraft.com: hard edges, hairline rules, Archivo
+//! Colours, type and shapes, matching bdtecnologia.com.br: hard edges, hairline rules, Archivo
 //! display type, Inter body text and Geist Mono labels. Widgets read [`Tokens::get`]; nothing
 //! hard-codes a colour.
 
@@ -87,8 +87,8 @@ impl Tokens {
         faint: ink_alpha(0xf2f1ee, 97),
         line: ink_alpha(0xf2f1ee, 38),
         line_strong: ink_alpha(0xf2f1ee, 102),
-        accent: hex(0x2d81ff),
-        accent_ink: hex(0x74aaff),
+        accent: hex(0x1876ff),
+        accent_ink: hex(0x7ab5ff),
         invert_bg: hex(0xffffff),
         invert_fg: hex(0x0b0b0c),
         // PdfCraft's and LightCraft's inks, so status colours come from the site's palette.
@@ -107,8 +107,8 @@ impl Tokens {
         faint: ink_alpha(0x101014, 107),
         line: ink_alpha(0x101014, 41),
         line_strong: ink_alpha(0x101014, 102),
-        accent: hex(0x2d81ff),
-        accent_ink: hex(0x1659c4),
+        accent: hex(0x1876ff),
+        accent_ink: hex(0x0b51b8),
         invert_bg: hex(0x101014),
         invert_fg: hex(0xf2f1ee),
         good: hex(0x0a7563),
@@ -125,12 +125,12 @@ impl Tokens {
     }
 
     /// An app's text colour (`--app-ink`): readable on this appearance's background.
-    pub fn app_ink(&self, app: &artcraft_launcher_core::CraftApp) -> Color32 {
+    pub fn app_ink(&self, app: &bd_launcher_core::App) -> Color32 {
         rgb(if self.dark { app.ink_dark } else { app.ink_light })
     }
 }
 
-/// Mixes `c` into the background at `alpha` (0â€“1): tinted washes.
+/// Mixes `c` into the background at `alpha` (0–1): tinted washes.
 pub fn tint(c: Color32, alpha: f32) -> Color32 {
     let a = (alpha.clamp(0.0, 1.0) * 255.0).round() as u8;
     Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), a)

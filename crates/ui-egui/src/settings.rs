@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use artcraft_launcher_core::PackageKind;
+use bd_launcher_core::PackageKind;
 use serde::{Deserialize, Serialize};
 
 use crate::i18n::t;
@@ -74,7 +74,7 @@ impl CheckEvery {
         }
     }
 
-    /// How often to look. Checks ask ArtCraft's release feed (one cheap request; GitHub only as a
+    /// How often to look. Checks ask BD's release feed (one cheap request; GitHub only as a
     /// fallback), so automatic checks run every five minutes.
     pub fn seconds(self) -> Option<i64> {
         match self {
@@ -87,7 +87,7 @@ impl CheckEvery {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    pub install_locations: artcraft_launcher_core::protocol::InstallLocations,
+    pub install_locations: bd_launcher_core::protocol::InstallLocations,
     pub view: ViewMode,
     pub filter: Filter,
     pub sort: SortKey,

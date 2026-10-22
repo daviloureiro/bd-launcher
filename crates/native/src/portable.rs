@@ -4,7 +4,7 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::manifest::Record;
 use crate::paths::Paths;
-use artcraft_launcher_core::{CraftApp, PackageKind};
+use bd_launcher_core::{App, PackageKind};
 
 const MAX_FILES: usize = 10_000;
 const MAX_BYTES: u64 = 4 * 1024 * 1024 * 1024;
@@ -143,9 +143,9 @@ fn extract(file: &Path, destination: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(files)
 }
 
-fn recorded_files<'a>(app: &CraftApp, record: &'a Record) -> Result<(&'a Path, Vec<PathBuf>), String> {
+fn recorded_files<'a>(app: &App, record: &'a Record) -> Result<(&'a Path, Vec<PathBuf>), String> {
     let root = record.path.parent().ok_or("The portable installation has no parent folder.")?;
-    if record.kind != PackageKind::PortableZip || root.file_name().is_none_or(|n| n != app.id) {
+    if record.kind != PackageKind::PortableZip || root.file_name().is_none_or(|n| n != std::ffi::OsStr::new(&app.id)) {
         return Err("The launcher has no valid ownership record for this portable folder.".into());
     }
     let resolved = resolve_missing(root)?;
@@ -174,7 +174,7 @@ fn recorded_files<'a>(app: &CraftApp, record: &'a Record) -> Result<(&'a Path, V
 /// unless `replace` allows writing over them.
 #[allow(clippy::too_many_arguments)]
 pub fn install(
-    app: &CraftApp,
+    app: &App,
     file: &Path,
     version: &str,
     previous: Option<&Record>,
@@ -192,7 +192,7 @@ pub fn install(
             let parent = directory.map(Path::to_path_buf).unwrap_or_else(|| paths.apps());
             validate_directory(&parent)?;
             let parent = resolve_missing(&parent)?;
-            (parent.join(app.id), Vec::new())
+            (parent.join(&app.id), Vec::new())
         }
     };
     validate_owned_directory(&destination, &destination)?;
@@ -284,7 +284,7 @@ pub fn install(
 }
 
 /// Removes only recorded program files. Personal settings and documents remain.
-pub fn remove(app: &CraftApp, record: &Record) -> Result<(), String> {
+pub fn remove(app: &App, record: &Record) -> Result<(), String> {
     let (root, files) = recorded_files(app, record)?;
     for relative in &files {
         let file = root.join(relative);
@@ -334,7 +334,7 @@ mod tests {
         assert!(validate_directory(&root).is_ok());
         assert!(validate_owned_directory(&root, &root).is_ok());
 
-        let app = CraftApp::by_id("photocraft").unwrap();
+        let app = crate::testing::app("photocraft");
         let paths = Paths::under(&home);
         let zip = archive(dir.path(), "app.zip", &[("photocraft.exe", b"program"), ("lib/runtime.dll", b"library")]);
         let record = install(app, &zip, "0.5.0", None, &paths, Some(&home), false, &mut |_| Ok(())).unwrap();
@@ -389,14 +389,14 @@ mod tests {
         let foreign_root = link.join("photocraft");
         std::fs::create_dir(&foreign_root).unwrap();
         std::fs::write(foreign_root.join("photocraft.exe"), b"foreign program").unwrap();
-        assert!(remove(CraftApp::by_id("photocraft").unwrap(), &record).is_err());
+        assert!(remove(crate::testing::app("photocraft"), &record).is_err());
         assert_eq!(std::fs::read(foreign_root.join("photocraft.exe")).unwrap(), b"foreign program");
     }
 
     #[test]
     fn upgrade_downgrade_and_uninstall_preserve_personal_files_and_location() {
         let dir = tempfile::tempdir().unwrap();
-        let app = CraftApp::by_id("photocraft").unwrap();
+        let app = crate::testing::app("photocraft");
         let paths = Paths::under(dir.path());
         let parent = dir.path().join("My Tools");
         let first = archive(dir.path(), "first.zip", &[("photocraft.exe", b"first"), ("obsolete.dll", b"old")]);
@@ -412,11 +412,11 @@ mod tests {
             assert!(!parent.join("photocraft/obsolete.dll").exists());
             assert_eq!(std::fs::read(&personal).unwrap(), b"personal");
             let mut manifest = crate::manifest::Manifest::default();
-            manifest.apps.insert(app.id.into(), record.clone());
+            manifest.apps.insert(app.id.clone(), record.clone());
             manifest.save(&paths.manifest()).unwrap();
             let restored = crate::manifest::Manifest::load(&paths.manifest());
-            let detected = crate::detect::detect(app, &restored, &crate::detect::Snapshot::take()).unwrap();
-            assert_eq!(detected.version, artcraft_launcher_core::version::parse(version));
+            let detected = crate::detect::detect(app, &restored, &crate::detect::Snapshot::take(std::slice::from_ref(app))).unwrap();
+            assert_eq!(detected.version, bd_launcher_core::version::parse(version));
             assert_eq!(detected.location, record.path.to_string_lossy());
         }
         remove(app, &record).unwrap();
@@ -427,7 +427,7 @@ mod tests {
     #[test]
     fn a_failed_manifest_commit_restores_the_previous_program() {
         let dir = tempfile::tempdir().unwrap();
-        let app = CraftApp::by_id("photocraft").unwrap();
+        let app = crate::testing::app("photocraft");
         let paths = Paths::under(dir.path());
         let old = archive(dir.path(), "old.zip", &[("photocraft.exe", b"old"), ("lib.dll", b"library")]);
         let record = install(app, &old, "0.5.0", None, &paths, None, false, &mut |_| Ok(())).unwrap();
@@ -442,7 +442,7 @@ mod tests {
     #[test]
     fn collision_is_rejected_before_replacing_any_old_file() {
         let dir = tempfile::tempdir().unwrap();
-        let app = CraftApp::by_id("photocraft").unwrap();
+        let app = crate::testing::app("photocraft");
         let paths = Paths::under(dir.path());
         let old = archive(dir.path(), "old.zip", &[("photocraft.exe", b"old")]);
         let record = install(app, &old, "0.5.0", None, &paths, None, false, &mut |_| Ok(())).unwrap();
@@ -457,7 +457,7 @@ mod tests {
     #[test]
     fn a_new_install_writes_over_unrecorded_files_only_when_asked_to() {
         let dir = tempfile::tempdir().unwrap();
-        let app = CraftApp::by_id("photocraft").unwrap();
+        let app = crate::testing::app("photocraft");
         let paths = Paths::under(dir.path());
         let folder = paths.apps().join("photocraft");
         std::fs::create_dir_all(&folder).unwrap();

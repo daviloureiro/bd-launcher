@@ -6,6 +6,7 @@
 mod icns;
 mod ico;
 mod local;
+mod publish;
 mod version;
 
 use std::path::{Path, PathBuf};
@@ -24,13 +25,16 @@ commands:
   icns <out.icns> <in.png>...
                   pack square PNGs (16-1024 px) into a macOS .icns, on any OS
   local sync | serve | status
-                  build the Craft apps from their checkouts and install them from this machine
+                  build the apps from their checkouts and install them from this machine
                   (cargo xtask local help)
+  publish --app <id> --version <x.y.z> --dir <folder>
+                  upload a release to Firebase and publish it in the catalog
+                  (cargo xtask publish --help)
 ";
 
 /// Packages that must build for wasm32-unknown-unknown: the pure core and the web app (which
 /// pulls in the shared egui UI).
-const WASM_PACKAGES: &[&str] = &["artcraft-launcher-core", "artcraft-launcher-web"];
+const WASM_PACKAGES: &[&str] = &["bd-launcher-core", "bd-launcher-web"];
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -42,6 +46,7 @@ fn main() -> ExitCode {
         Some("ico") => ico::run(&rest),
         Some("icns") => icns::run(&rest),
         Some("local") => local::run(&rest),
+        Some("publish") => publish::run(&rest),
         Some("-h" | "--help" | "help") | None => {
             print!("{USAGE}");
             Ok(())

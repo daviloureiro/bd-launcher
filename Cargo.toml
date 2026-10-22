@@ -7,7 +7,7 @@ version = "0.6.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 rust-version = "1.90"
-repository = "https://github.com/storytold/craft-launcher"
+repository = "https://github.com/bd-tecnologia/bd-launcher"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -17,9 +17,9 @@ dbg_macro = "warn"
 todo = "warn"
 
 [workspace.dependencies]
-artcraft-launcher-core = { path = "crates/core" }
-artcraft-launcher-ui-egui = { path = "crates/ui-egui" }
-artcraft-launcher-native = { path = "crates/native" }
+bd-launcher-core = { path = "crates/core" }
+bd-launcher-ui-egui = { path = "crates/ui-egui" }
+bd-launcher-native = { path = "crates/native" }
 egui = "0.36"
 eframe = { version = "0.36", default-features = false }
 egui_extras = { version = "0.36", default-features = false }

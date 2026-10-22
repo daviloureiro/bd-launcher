@@ -47,12 +47,16 @@ pub enum Command {
     Cancel {
         app: String,
     },
-    /// Download the newer ArtCraft Launcher, put it in place and restart into it.
+    /// Download the newer BD Launcher, put it in place and restart into it.
     UpdateLauncher,
     /// Fetch the pictures of an app's details page (`core::details`), one [`Event::Screenshot`]
     /// each, the lead picture first. Pictures already saved on this machine arrive without
     /// touching the network. Asking again while they are on their way does nothing.
     FetchScreenshots {
+        app: String,
+    },
+    /// Fetch an app's icon. The icon is cached, so asking again costs nothing.
+    FetchIcon {
         app: String,
     },
     /// Change how the backend behaves.
@@ -133,16 +137,16 @@ pub const INSTALL_CANCELLED: &str = "install cancelled";
 /// Which service an app's release information came from (the footer names them).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Origin {
-    /// ArtCraft's release feed (storyteller-web), which polls GitHub for everyone.
-    ArtCraftApi,
-    /// GitHub directly: the fallback.
+    /// BD's catalog on Firebase, which carries every app's latest release.
+    Catalog,
+    /// GitHub directly: the fallback for apps whose releases live there.
     GitHub,
 }
 
 impl Origin {
     pub fn label(self) -> &'static str {
         match self {
-            Self::ArtCraftApi => "ArtCraft API",
+            Self::Catalog => "BD catalog",
             Self::GitHub => "GitHub",
         }
     }
@@ -151,8 +155,8 @@ impl Origin {
 /// Where release information came from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Source {
-    /// ArtCraft's release feed (storyteller-web), which polls GitHub for everyone.
-    Feed,
+    /// BD's catalog on Firebase.
+    Catalog,
     /// The GitHub REST API.
     GitHubApi,
     /// github.com release pages (no API quota; used when the API is rate-limited).
@@ -164,7 +168,7 @@ pub enum Source {
 impl Source {
     pub fn label(self) -> &'static str {
         match self {
-            Self::Feed => "ArtCraft",
+            Self::Catalog => "BD catalog",
             Self::GitHubApi => "GitHub",
             Self::GitHubPages => "GitHub (release pages)",
             Self::Cache => "saved results",
@@ -175,21 +179,25 @@ impl Source {
 /// Something the backend wants the UI to know.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Event {
+    /// The app catalog, read from Firebase. The UI rebuilds its list from it.
+    Catalog(crate::catalog::Catalog),
     Latest {
         app: String,
         latest: LatestRelease,
         /// The service this answer came from.
         from: Origin,
     },
-    /// The latest ArtCraft Launcher release, when it's newer than this one.
+    /// The latest BD Launcher release, when it's newer than this one.
     LauncherUpdate(Release),
     /// The new launcher is in place (or will be, once this one exits): quit now so it can start.
     LauncherRestarting,
-    /// News and alerts from ArtCraft's release feed (replaces any earlier set).
+    /// News and alerts from the catalog (replaces any earlier set).
     Notices {
-        announcements: Vec<crate::feed::Notice>,
-        alerts: Vec<crate::feed::Notice>,
+        announcements: Vec<crate::catalog::Notice>,
+        alerts: Vec<crate::catalog::Notice>,
     },
+    /// The catalog couldn't be read: the reason, so the UI can say it and offer a retry.
+    CatalogFailed(String),
     Detected {
         app: String,
         installed: Option<Installed>,
@@ -222,10 +230,15 @@ pub enum Event {
         result: Result<String, String>,
     },
     /// One picture of an app's details page, or why it couldn't be had (offline, not published,
-    /// not a JPEG). `key` is the [`crate::details::Shot::key`].
+    /// not a JPEG). `key` is the picture's key in the catalog.
     Screenshot {
         app: String,
         key: String,
+        result: Result<Vec<u8>, String>,
+    },
+    /// An app's icon, or why it couldn't be had.
+    Icon {
+        app: String,
         result: Result<Vec<u8>, String>,
     },
     CheckStarted,

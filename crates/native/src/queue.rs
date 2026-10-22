@@ -9,7 +9,7 @@ use std::ffi::OsString;
 use std::sync::{Condvar, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
-use artcraft_launcher_core::protocol::CANCELLED;
+use bd_launcher_core::protocol::CANCELLED;
 
 type Outcome = Result<(), String>;
 

@@ -1,0 +1,71 @@
+# Publish an app to the BD catalog.
+#
+# Copy this file into the repository of the app you publish and adjust the three places marked
+# TODO. It runs when you cut a release: it builds the files, uploads them to the Firebase
+# storage bucket and writes the app's entry in the catalog.
+#
+# Two secrets are needed in the repository's settings (Settings → Secrets and variables →
+# Actions):
+#   FIREBASE_TOKEN             the token from `firebase login:ci`
+#   FIREBASE_SERVICE_ACCOUNT   the service account's JSON (Project settings → Service accounts)
+
+name: publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The version to publish, without a leading v (1.2.0)"
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  APP_ID: meuapp # TODO: the app's machine name
+  FIREBASE_PROJECT: bd-tecnologia
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the Firebase CLI
+        run: npm i -g firebase-tools
+
+      - name: Log in to Firebase
+        run: firebase login:ci --no-localhost
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Get a database token
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      # TODO: build the files, and put them in a folder named after the version.
+      - name: Build
+        run: echo "Build the app here; the files go to dist/" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ "${{ inputs.version }}" != "" ]; then VERSION="${{ inputs.version }}"; fi
+          cargo xtask publish \
+            --app "$APP_ID" \
+            --version "$VERSION" \
+            --dir "dist/$VERSION" \
+            --icon "assets/icon.png" \
+            --project "$FIREBASE_PROJECT" \
+            --notes "$(git tag -l --format='%(contents)' "v$VERSION" 2>/dev/null || true)"
+        env:
+          BD_LAUNCHER_FIREBASE_TOKEN: ${{ steps.auth.outputs.access_token }}

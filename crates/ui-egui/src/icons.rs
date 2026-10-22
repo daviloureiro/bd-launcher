@@ -1,45 +1,25 @@
-//! Bundled images: each Craft App's icon and the launcher's own.
+//! Images: the apps' icons, which the backend fetches, and the launcher's own.
 
 use egui::ImageSource;
 
-/// The 128 px icon of a Craft App.
-pub fn app(id: &str) -> Option<ImageSource<'static>> {
-    Some(match id {
-        "photocraft" => egui::include_image!("../../../assets/app-icons/photocraft.png"),
-        "vectorcraft" => egui::include_image!("../../../assets/app-icons/vectorcraft.png"),
-        "filmcraft" => egui::include_image!("../../../assets/app-icons/filmcraft.png"),
-        "lightcraft" => egui::include_image!("../../../assets/app-icons/lightcraft.png"),
-        "pdfcraft" => egui::include_image!("../../../assets/app-icons/pdfcraft.png"),
-        "effectcraft" => egui::include_image!("../../../assets/app-icons/effectcraft.png"),
-        "designcraft" => egui::include_image!("../../../assets/app-icons/designcraft.png"),
-        "wordcraft" => egui::include_image!("../../../assets/app-icons/wordcraft.png"),
-        "deckcraft" => egui::include_image!("../../../assets/app-icons/deckcraft.png"),
-        "gridcraft" => egui::include_image!("../../../assets/app-icons/gridcraft.png"),
-        "cadcraft" => egui::include_image!("../../../assets/app-icons/cadcraft.png"),
-        "soundcraft" => egui::include_image!("../../../assets/app-icons/soundcraft.png"),
-        "figcraft" => egui::include_image!("../../../assets/app-icons/figcraft.png"),
-        _ => return None,
-    })
-}
-
-/// A Craft App's icon: in colour, or in greys for an app that is not installed. The grey copy is
-/// made once per app from the same bundled picture and kept in the context.
-pub fn app_image(ctx: &egui::Context, id: &str, in_colour: bool) -> Option<egui::Image<'static>> {
-    let colour = app(id).map(egui::Image::new);
+/// An app's icon: in colour, or in greys for an app that is not installed. The grey copy is
+/// made once per app from the same picture and kept in the context. `bytes` are the icon's, as
+/// the backend sent them.
+pub fn app_image(ctx: &egui::Context, id: &str, bytes: Option<std::sync::Arc<[u8]>>, in_colour: bool) -> Option<egui::Image<'static>> {
+    let bytes = bytes?;
+    let source = ImageSource::Bytes { uri: format!("bytes://app-icons/{id}").into(), bytes: egui::load::Bytes::Shared(bytes.clone()) };
+    let colour = egui::Image::new(source);
     if in_colour {
-        return colour;
+        return Some(colour);
     }
     // The colour picture decodes on a background thread the first time it's asked for. Ask now,
     // while the card is grey, so it is ready when the pointer comes over it (a cache hit after).
-    if let Some(colour) = &colour {
-        let _ = colour.load_for_size(ctx, egui::Vec2::splat(64.0));
-    }
+    let _ = colour.load_for_size(ctx, egui::Vec2::splat(64.0));
     let key = egui::Id::new(("grey-app-icon", id));
     if let Some(texture) = ctx.data(|d| d.get_temp::<egui::TextureHandle>(key)) {
         return Some(egui::Image::new(&texture));
     }
-    let ImageSource::Bytes { bytes, .. } = app(id)? else { return None };
-    let picture = image::load_from_memory(bytes.as_ref()).ok()?.to_rgba8();
+    let picture = image::load_from_memory(&bytes).ok()?.to_rgba8();
     let size = [picture.width() as usize, picture.height() as usize];
     let mut pixels = picture.into_raw();
     desaturate(&mut pixels);
@@ -58,18 +38,23 @@ fn desaturate(pixels: &mut [u8]) {
     }
 }
 
-/// The ArtCraft wordmark, as supplied: dark ink for light backgrounds, white for dark ones.
-/// An ArtCraft trademark, not covered by the MIT/Apache license (`docs/brand/LICENSE-brand.txt`).
-pub fn artcraft_logo(dark_background: bool) -> ImageSource<'static> {
+/// The BD mark: the letterform the BD team uses, as supplied.
+/// An BD trademark, not covered by the MIT/Apache license (`docs/brand/LICENSE-brand.txt`).
+pub fn bd_mark() -> ImageSource<'static> {
+    egui::include_image!("../../../docs/brand/bd-mark.svg")
+}
+
+/// The BD mark for a dark background: the same letterform in white.
+pub fn bd_mark_on(dark_background: bool) -> ImageSource<'static> {
     if dark_background {
-        egui::include_image!("../../../docs/brand/artcraft-logo-white.svg")
+        egui::include_image!("../../../docs/brand/bd-mark-white.svg")
     } else {
-        egui::include_image!("../../../docs/brand/artcraft-logo.svg")
+        egui::include_image!("../../../docs/brand/bd-mark.svg")
     }
 }
 
-/// The ArtCraft wordmark's width / height (its SVG view box: 1038.05 × 108).
-pub const ARTCRAFT_LOGO_ASPECT: f32 = 1038.05 / 108.0;
+/// The BD mark's width / height (its SVG view box: 473 × 265).
+pub const BD_MARK_ASPECT: f32 = 473.0 / 265.0;
 
 /// A social service's logo (Simple Icons, white, for tinting), by its name in `catalog::SOCIAL`.
 pub fn social(service: &str) -> Option<ImageSource<'static>> {
@@ -86,9 +71,9 @@ pub fn social(service: &str) -> Option<ImageSource<'static>> {
     })
 }
 
-/// The ArtCraft "A" mark in blue, as supplied: the launcher's app icon and getartcraft.com's favicon.
-pub fn artcraft_mark() -> ImageSource<'static> {
-    egui::include_image!("../../../docs/brand/artcraft-mark.svg")
+/// The BD mark in blue, as supplied: the launcher's app icon and bdtecnologia.com.br's favicon.
+pub fn bd_mark_blue() -> ImageSource<'static> {
+    egui::include_image!("../../../docs/brand/bd-mark-blue.svg")
 }
 
 #[cfg(test)]

@@ -275,94 +275,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 
 [[package]]
-name = "artcraft-launcher"
-version = "0.6.1"
-dependencies = [
- "artcraft-launcher-core",
- "artcraft-launcher-native",
- "artcraft-launcher-ui-egui",
- "eframe",
- "egui",
- "env_logger",
- "image",
- "log",
- "notify-rust",
- "objc2 0.6.5",
- "objc2-app-kit 0.3.2",
- "objc2-foundation 0.3.2",
- "rfd",
- "ron",
- "serde",
- "tray-icon",
- "winreg",
- "winresource",
- "zbus",
-]
-
-[[package]]
-name = "artcraft-launcher-core"
-version = "0.6.1"
-dependencies = [
- "semver",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "artcraft-launcher-native"
-version = "0.6.1"
-dependencies = [
- "artcraft-launcher-core",
- "dirs 6.0.0",
- "dunce",
- "flate2",
- "log",
- "plist",
- "serde",
- "serde_json",
- "sha2",
- "tar",
- "tempfile",
- "ureq",
- "winreg",
- "zip",
-]
-
-[[package]]
-name = "artcraft-launcher-ui-egui"
-version = "0.6.1"
-dependencies = [
- "artcraft-launcher-core",
- "egui",
- "egui_extras",
- "egui_kittest",
- "image",
- "jiff",
- "js-sys",
- "log",
- "serde",
- "serde_json",
- "skrifa",
- "sys-locale",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "artcraft-launcher-web"
-version = "0.6.1"
-dependencies = [
- "artcraft-launcher-core",
- "artcraft-launcher-ui-egui",
- "eframe",
- "egui",
- "js-sys",
- "log",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
 name = "as-raw-xcb-connection"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -591,6 +503,94 @@ name = "base64"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
+
+[[package]]
+name = "bd-launcher"
+version = "0.6.1"
+dependencies = [
+ "bd-launcher-core",
+ "bd-launcher-native",
+ "bd-launcher-ui-egui",
+ "eframe",
+ "egui",
+ "env_logger",
+ "image",
+ "log",
+ "notify-rust",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
+ "rfd",
+ "ron",
+ "serde",
+ "tray-icon",
+ "winreg",
+ "winresource",
+ "zbus",
+]
+
+[[package]]
+name = "bd-launcher-core"
+version = "0.6.1"
+dependencies = [
+ "semver",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "bd-launcher-native"
+version = "0.6.1"
+dependencies = [
+ "bd-launcher-core",
+ "dirs 6.0.0",
+ "dunce",
+ "flate2",
+ "log",
+ "plist",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tar",
+ "tempfile",
+ "ureq",
+ "winreg",
+ "zip",
+]
+
+[[package]]
+name = "bd-launcher-ui-egui"
+version = "0.6.1"
+dependencies = [
+ "bd-launcher-core",
+ "egui",
+ "egui_extras",
+ "egui_kittest",
+ "image",
+ "jiff",
+ "js-sys",
+ "log",
+ "serde",
+ "serde_json",
+ "skrifa",
+ "sys-locale",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "bd-launcher-web"
+version = "0.6.1"
+dependencies = [
+ "bd-launcher-core",
+ "bd-launcher-ui-egui",
+ "eframe",
+ "egui",
+ "js-sys",
+ "log",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
 
 [[package]]
 name = "bit-set"
@@ -5875,6 +5875,9 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 [[package]]
 name = "xtask"
 version = "0.6.1"
+dependencies = [
+ "sha2",
+]
 
 [[package]]
 name = "yoke"

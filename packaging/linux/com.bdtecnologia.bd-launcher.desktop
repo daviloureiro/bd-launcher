@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=BD Launcher
+GenericName=App Launcher
+Comment=Install, update and launch the BD Apps
+Exec=bd-launcher
+TryExec=bd-launcher
+Icon=com.bdtecnologia.bd-launcher
+Terminal=false
+StartupNotify=true
+StartupWMClass=bd-launcher
+Categories=Utility;PackageManager;
+Keywords=bd;launcher;installer;updater;apps;

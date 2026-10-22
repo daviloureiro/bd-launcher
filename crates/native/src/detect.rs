@@ -1,7 +1,7 @@
 //! Finding Craft Apps that are already installed, however they got there.
 //!
 //! - macOS: `<App>.app` in `/Applications` or `~/Applications`, read from its `Info.plist`.
-//! - Windows: the Windows Installer's uninstall entries (`Learning Machines LLC`), and portable
+//! - Windows: the Windows Installer's uninstall entries (`BD Tecnologia`), and portable
 //!   copies the launcher unpacked.
 //! - Linux: AppImages in `~/Applications` (where the launcher and AppImageLauncher put them),
 //!   `~/AppImages` (Gear Lever) and `~/.local/bin`, Debian/RPM packages, Flatpaks, and tarball
@@ -10,7 +10,7 @@
 
 use std::path::{Path, PathBuf};
 
-use artcraft_launcher_core::{CraftApp, InstallSource, Installed, version};
+use bd_launcher_core::{App, InstallSource, Installed, version};
 
 use crate::manifest::Manifest;
 
@@ -22,20 +22,22 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
-    pub fn take() -> Self {
+    /// One look at the system. `apps` is the catalog: only the packages of those apps are read.
+    pub fn take(apps: &[App]) -> Self {
         #[cfg(target_os = "linux")]
         {
-            Self { packages: linux::packages() }
+            Self { packages: linux::packages(apps) }
         }
         #[cfg(not(target_os = "linux"))]
         {
+            let _ = apps;
             Self::default()
         }
     }
 }
 
 /// What's installed of `app`, best source first.
-pub fn detect(app: &CraftApp, manifest: &Manifest, snapshot: &Snapshot) -> Option<Installed> {
+pub fn detect(app: &App, manifest: &Manifest, snapshot: &Snapshot) -> Option<Installed> {
     let _ = snapshot;
     if let Some(found) = from_manifest(app, manifest) {
         return Some(found);
@@ -52,14 +54,14 @@ pub fn detect(app: &CraftApp, manifest: &Manifest, snapshot: &Snapshot) -> Optio
     None
 }
 
-fn from_manifest(app: &CraftApp, manifest: &Manifest) -> Option<Installed> {
-    let rec = manifest.apps.get(app.id)?;
+fn from_manifest(app: &App, manifest: &Manifest) -> Option<Installed> {
+    let rec = manifest.apps.get(&app.id)?;
     if !rec.path.exists() {
         return None;
     }
     // On macOS the bundle itself is the truth (the app may have updated itself).
     #[cfg(target_os = "macos")]
-    if rec.kind == artcraft_launcher_core::PackageKind::Dmg {
+    if rec.kind == bd_launcher_core::PackageKind::Dmg {
         return macos::read_bundle(app, &rec.path);
     }
     Some(Installed {
@@ -84,18 +86,18 @@ pub(crate) fn appimage_version(name: &str, stems: &[&str]) -> Option<Option<Stri
     if stems.iter().any(|s| base.eq_ignore_ascii_case(s)) {
         return Some(None);
     }
-    let parsed = artcraft_launcher_core::platform::parse_asset_name(&format!("{base}.AppImage"), stems)?;
-    (parsed.kind == artcraft_launcher_core::PackageKind::AppImage && parsed.token.starts_with("linux-")).then_some(Some(parsed.version))
+    let parsed = bd_launcher_core::platform::parse_asset_name(&format!("{base}.AppImage"), stems)?;
+    (parsed.kind == bd_launcher_core::PackageKind::AppImage && parsed.token.starts_with("linux-")).then_some(Some(parsed.version))
 }
 
 /// Who our Windows Installer packages name as their publisher.
 #[cfg_attr(not(windows), allow(dead_code))]
-const PUBLISHER: &str = "Learning Machines LLC";
+const PUBLISHER: &str = "BD Tecnologia";
 
 /// Whether an uninstall entry's `DisplayName` and `Publisher` are `app`'s, under any name its
 /// installers have registered.
 #[cfg_attr(not(windows), allow(dead_code))]
-fn is_installer_entry(app: &CraftApp, display_name: &str, publisher: &str) -> bool {
+fn is_installer_entry(app: &App, display_name: &str, publisher: &str) -> bool {
     publisher == PUBLISHER && app.names().any(|n| n == display_name)
 }
 
@@ -103,7 +105,7 @@ fn is_installer_entry(app: &CraftApp, display_name: &str, publisher: &str) -> bo
 /// `InstallLocation`, then `<App>` under each Program Files root for each name the app has had,
 /// and in each folder `<stem>.exe` for each stem, current first. Doesn't touch the disk.
 #[cfg_attr(not(windows), allow(dead_code))]
-fn exe_candidates(app: &CraftApp, location: Option<&Path>, program_files: &[PathBuf]) -> Vec<PathBuf> {
+fn exe_candidates(app: &App, location: Option<&Path>, program_files: &[PathBuf]) -> Vec<PathBuf> {
     let in_program_files = program_files.iter().flat_map(|root| app.names().map(move |n| root.join(n)));
     let dirs = location.map(Path::to_path_buf).into_iter().chain(in_program_files);
     dirs.flat_map(|d| app.stems().map(move |s| d.join(format!("{s}.exe")))).collect()
@@ -112,9 +114,9 @@ fn exe_candidates(app: &CraftApp, location: Option<&Path>, program_files: &[Path
 /// Version from `<app> --version` output. Binaries print the machine id (`photocraft 0.7.0`),
 /// the display name (`SoundCraft 0.5.0`), or a former id (`printcraft 0.2.1` for PdfCraft).
 #[cfg_attr(not(any(target_os = "linux", target_os = "freebsd")), allow(dead_code))]
-fn parse_cli_version(line: &str, app: &CraftApp) -> Option<version::Version> {
+fn parse_cli_version(line: &str, app: &App) -> Option<version::Version> {
     let line = line.trim();
-    for prefix in app.stems().chain(std::iter::once(app.name)) {
+    for prefix in app.stems().chain(std::iter::once(app.name.as_str())) {
         if let Some(rest) = strip_cli_prefix(line, prefix)
             && let Some(tok) = rest.split_whitespace().next()
             && let Some(v) = version::parse(tok)
@@ -144,7 +146,7 @@ pub mod macos {
     use super::*;
 
     /// Where a `.app` might be: the system and the user's Applications folders.
-    pub fn candidates(app: &CraftApp) -> Vec<PathBuf> {
+    pub fn candidates(app: &App) -> Vec<PathBuf> {
         let bundle = format!("{}.app", app.name);
         let mut out = vec![Path::new("/Applications").join(&bundle)];
         if let Some(home) = dirs::home_dir() {
@@ -153,12 +155,12 @@ pub mod macos {
         out
     }
 
-    pub fn detect(app: &CraftApp) -> Option<Installed> {
+    pub fn detect(app: &App) -> Option<Installed> {
         candidates(app).iter().find_map(|p| read_bundle(app, p))
     }
 
     /// Reads a bundle's `Info.plist`; `None` unless it's really this app.
-    pub fn read_bundle(app: &CraftApp, path: &Path) -> Option<Installed> {
+    pub fn read_bundle(app: &App, path: &Path) -> Option<Installed> {
         let plist = plist::Value::from_file(path.join("Contents/Info.plist")).ok()?;
         let dict = plist.as_dictionary()?;
         if dict.get("CFBundleIdentifier")?.as_string()? != app.bundle_id() {
@@ -186,13 +188,13 @@ pub mod windows {
 
     /// Reads VERSIONINFO without executing the downloaded application. The path is data in
     /// a child-only environment variable, never interpolated into PowerShell source.
-    pub fn executable_version(path: &std::path::Path) -> Option<artcraft_launcher_core::version::Version> {
+    pub fn executable_version(path: &std::path::Path) -> Option<bd_launcher_core::version::Version> {
         let path = std::fs::canonicalize(path).ok()?;
         let mut command = crate::process::command("powershell.exe");
         command.args([
             "-NoLogo", "-NoProfile", "-NonInteractive", "-Command",
-            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [System.Diagnostics.FileVersionInfo]::GetVersionInfo($env:ARTCRAFT_VERSION_FILE).ProductVersion",
-        ]).env("ARTCRAFT_VERSION_FILE", path);
+            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [System.Diagnostics.FileVersionInfo]::GetVersionInfo($env:BD_VERSION_FILE).ProductVersion",
+        ]).env("BD_VERSION_FILE", path);
         let output = crate::process::run_command(command, "powershell.exe", std::time::Duration::from_secs(5)).ok()?;
         version::parse(output.trim())
     }
@@ -200,12 +202,12 @@ pub mod windows {
     /// An MSI install found in the registry.
     pub struct MsiInstall {
         pub product_code: String,
-        pub version: Option<artcraft_launcher_core::version::Version>,
+        pub version: Option<bd_launcher_core::version::Version>,
         pub exe: Option<PathBuf>,
     }
 
     /// Every Windows Installer entry for `app`, newest first.
-    pub fn msi_installs(app: &CraftApp) -> Vec<MsiInstall> {
+    pub fn msi_installs(app: &App) -> Vec<MsiInstall> {
         let mut out = Vec::new();
         for (hive, flags) in [(HKEY_LOCAL_MACHINE, KEY_WOW64_64KEY), (HKEY_LOCAL_MACHINE, KEY_WOW64_32KEY), (HKEY_CURRENT_USER, 0)] {
             let Ok(root) = RegKey::predef(hive).open_subkey_with_flags(UNINSTALL, KEY_READ | flags) else { continue };
@@ -233,7 +235,7 @@ pub mod windows {
 
     /// The folder the app's MSI remembers for its next upgrade, which is where it went when the
     /// launcher chose the folder.
-    fn install_dir(app: &CraftApp) -> Option<PathBuf> {
+    fn install_dir(app: &App) -> Option<PathBuf> {
         [KEY_WOW64_64KEY, KEY_WOW64_32KEY].into_iter().find_map(|flags| {
             let key = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey_with_flags(format!(r"SOFTWARE\{}", app.name), KEY_READ | flags).ok()?;
             key.get_value::<String, _>("InstallDir").ok().filter(|d| !d.is_empty()).map(PathBuf::from)
@@ -241,7 +243,7 @@ pub mod windows {
     }
 
     /// The app's exe: from `App Paths`, the install folder, or Program Files.
-    fn exe_path(app: &CraftApp, location: Option<PathBuf>) -> Option<PathBuf> {
+    fn exe_path(app: &App, location: Option<PathBuf>) -> Option<PathBuf> {
         for stem in app.stems() {
             let app_paths = format!(r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{stem}.exe");
             for flags in [KEY_WOW64_64KEY, KEY_WOW64_32KEY] {
@@ -264,7 +266,7 @@ pub mod windows {
         exe_candidates(app, location.as_deref(), &roots).into_iter().find(|p| p.exists())
     }
 
-    pub fn detect(app: &CraftApp) -> Option<Installed> {
+    pub fn detect(app: &App) -> Option<Installed> {
         let m = msi_installs(app).into_iter().next()?;
         Some(Installed {
             version: m.version,
@@ -284,11 +286,11 @@ pub mod linux {
     use crate::packages::{self, Package};
     use crate::process::capture;
 
-    /// Installed Craft App packages from every package manager on this system (dpkg, rpm,
-    /// pacman, Flatpak). Read once per detection pass.
-    pub fn packages() -> Vec<Package> {
+    /// Installed packages of the catalog's apps, from every package manager on this system (dpkg,
+    /// rpm, pacman, Flatpak). Read once per detection pass.
+    pub fn packages(apps: &[App]) -> Vec<Package> {
         let ours = |name: &str| {
-            artcraft_launcher_core::SUITE.iter().any(|a| {
+            apps.iter().any(|a| {
                 [InstallSource::Deb, InstallSource::Rpm, InstallSource::Pacman, InstallSource::Flatpak]
                     .iter()
                     .any(|m| crate::packages::candidate_names(a, *m).iter().any(|n| n == name))
@@ -316,7 +318,7 @@ pub mod linux {
         if let Some(list) = crate::process::capture_flatpak(&["list", "--app", &arch, "--columns=application,version"], t) {
             let mut flatpaks = packages::parse_flatpak_list(&list);
             // Bundles built from a release tarball often list no version: ask Flatpak directly.
-            for (id, version) in flatpaks.iter_mut().filter(|(id, v)| v.is_empty() && id.starts_with("ai.storyteller.")) {
+            for (id, version) in flatpaks.iter_mut().filter(|(id, v)| v.is_empty() && id.starts_with("com.bdtecnologia.")) {
                 if let Some(v) = crate::process::capture_flatpak(&["info", &arch, id], t).as_deref().and_then(packages::parse_flatpak_info) {
                     *version = v;
                 }
@@ -362,7 +364,7 @@ pub mod linux {
 
     /// AppImages of `app` in `dirs`, newest first (unknown versions last; earlier folders win
     /// ties).
-    pub fn appimages_in(app: &CraftApp, dirs: &[PathBuf]) -> Vec<(PathBuf, Option<version::Version>)> {
+    pub fn appimages_in(app: &App, dirs: &[PathBuf]) -> Vec<(PathBuf, Option<version::Version>)> {
         let stems: Vec<&str> = app.stems().collect();
         let mut out: Vec<(PathBuf, Option<version::Version>)> = Vec::new();
         for dir in dirs {
@@ -390,11 +392,11 @@ pub mod linux {
     }
 
     /// AppImages of `app` in any of the usual folders, newest first.
-    pub fn appimages(app: &CraftApp) -> Vec<(PathBuf, Option<version::Version>)> {
+    pub fn appimages(app: &App) -> Vec<(PathBuf, Option<version::Version>)> {
         appimages_in(app, &appimage_dirs())
     }
 
-    pub fn detect(app: &CraftApp, snapshot: &Snapshot) -> Option<Installed> {
+    pub fn detect(app: &App, snapshot: &Snapshot) -> Option<Installed> {
         if let Some((path, version)) = appimages(app).into_iter().next() {
             return Some(Installed { version, source: InstallSource::AppImage, location: path.display().to_string(), package: None });
         }
@@ -410,7 +412,7 @@ pub mod linux {
     /// unlisted package name, or a sandbox that can't see them) but its binary is there. It is
     /// reported as a system binary: the launcher can open it but leaves updating and removing it
     /// to whatever installed it, since it can't tell which package manager that was.
-    fn detect_system_install(app: &CraftApp) -> Option<Installed> {
+    fn detect_system_install(app: &App) -> Option<Installed> {
         let bin = find_binary(app.id)?;
         Some(Installed { version: binary_version(&bin, app), source: InstallSource::Binary, location: bin.display().to_string(), package: None })
     }
@@ -421,7 +423,7 @@ pub mod linux {
         on_path.or_else(|| usual.map(|d| d.join(id)).find(|p| p.is_file()))
     }
 
-    pub(crate) fn binary_version(bin: &Path, app: &CraftApp) -> Option<version::Version> {
+    pub(crate) fn binary_version(bin: &Path, app: &App) -> Option<version::Version> {
         let out = crate::process::capture(bin.to_str()?, &["--version"], Duration::from_secs(5))?;
         parse_cli_version(out.trim(), app)
     }
@@ -434,7 +436,7 @@ pub mod freebsd {
 
     use super::*;
 
-    pub fn detect(app: &CraftApp) -> Option<Installed> {
+    pub fn detect(app: &App) -> Option<Installed> {
         let bin = Path::new("/usr/local/bin").join(app.id);
         if !bin.exists() {
             return None;
@@ -443,7 +445,7 @@ pub mod freebsd {
     }
 
     /// `<app> --version` prints `<app> 0.5.0 (sha, date)`.
-    fn binary_version(bin: &Path, app: &CraftApp) -> Option<version::Version> {
+    fn binary_version(bin: &Path, app: &App) -> Option<version::Version> {
         let out = crate::process::capture(bin.to_str()?, &["--version"], Duration::from_secs(5))?;
         parse_cli_version(out.trim(), app)
     }
@@ -456,14 +458,14 @@ mod linux_tests {
     #[test]
     fn ours_filter_matches_rpm_packages() {
         let ours = |name: &str| {
-            artcraft_launcher_core::SUITE.iter().any(|a| {
+            bd_launcher_core::SUITE.iter().any(|a| {
                 [InstallSource::Deb, InstallSource::Rpm, InstallSource::Pacman, InstallSource::Flatpak]
                     .iter()
                     .any(|m| crate::packages::candidate_names(a, *m).iter().any(|n| n == name))
             })
         };
         assert!(ours("photocraft"));
-        assert!(ours("ai.storyteller.photocraft"));
+        assert!(ours("com.bdtecnologia.photocraft"));
         assert!(!ours("unrelated-package"));
     }
 
@@ -477,7 +479,7 @@ mod linux_tests {
 
     #[test]
     fn reads_binary_version_from_cli() {
-        let photo = CraftApp::by_id("photocraft").unwrap();
+        let photo = crate::testing::app("photocraft");
         let temp_dir = tempfile::tempdir().unwrap();
         let bin = temp_dir.path().join("photocraft");
         std::fs::write(&bin, "#!/bin/sh\necho 'photocraft 0.6.0 (0c72d9542, 2026-10-10)'\n").unwrap();
@@ -498,15 +500,14 @@ mod linux_tests {
             bin
         };
         let sound = write("soundcraft", "#!/bin/sh\necho 'SoundCraft 0.5.0'\n");
-        assert_eq!(linux::binary_version(&sound, CraftApp::by_id("soundcraft").unwrap()).unwrap().to_string(), "0.5.0");
+        assert_eq!(linux::binary_version(&sound, crate::testing::app("soundcraft")).unwrap().to_string(), "0.5.0");
         let pdf = write("pdfcraft", "#!/bin/sh\necho 'printcraft 0.2.1'\n");
-        assert_eq!(linux::binary_version(&pdf, CraftApp::by_id("pdfcraft").unwrap()).unwrap().to_string(), "0.2.1");
+        assert_eq!(linux::binary_version(&pdf, crate::testing::app("pdfcraft")).unwrap().to_string(), "0.2.1");
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use artcraft_launcher_core::SUITE;
 
     use super::*;
 
@@ -537,9 +538,9 @@ mod tests {
 
     #[test]
     fn parse_cli_version_accepts_id_display_name_and_former_id() {
-        let photo = CraftApp::by_id("photocraft").unwrap();
-        let sound = CraftApp::by_id("soundcraft").unwrap();
-        let pdf = CraftApp::by_id("pdfcraft").unwrap();
+        let photo = crate::testing::app("photocraft");
+        let sound = crate::testing::app("soundcraft");
+        let pdf = crate::testing::app("pdfcraft");
         assert_eq!(parse_cli_version("photocraft 0.7.0 (dev build)", photo).unwrap().to_string(), "0.7.0");
         assert_eq!(parse_cli_version("SoundCraft 0.5.0", sound).unwrap().to_string(), "0.5.0");
         assert_eq!(parse_cli_version("printcraft 0.2.1", pdf).unwrap().to_string(), "0.2.1");
@@ -550,7 +551,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn finds_appimages_in_every_folder_newest_first() {
-        let app = CraftApp::by_id("photocraft").unwrap();
+        let app = crate::testing::app("photocraft");
         let root = tempfile::tempdir().unwrap();
         let (apps, gear, bin) = (root.path().join("Applications"), root.path().join("AppImages"), root.path().join("bin"));
         for d in [&apps, &gear, &bin] {
@@ -573,7 +574,7 @@ mod tests {
         );
     }
 
-    const LEARNING_MACHINES: &str = "Learning Machines LLC";
+    const LEARNING_MACHINES: &str = "BD Tecnologia";
 
     fn roots() -> Vec<PathBuf> {
         vec![PathBuf::from(r"C:\Program Files"), PathBuf::from(r"C:\Program Files (x86)")]
@@ -581,29 +582,29 @@ mod tests {
 
     #[test]
     fn pdfcraft_matches_its_former_printcraft_installer_name() {
-        let pdf = CraftApp::by_id("pdfcraft").unwrap();
+        let pdf = crate::testing::app("pdfcraft");
         assert!(is_installer_entry(pdf, "PrintCraft", LEARNING_MACHINES), "a PrintCraft entry from {LEARNING_MACHINES} should be PdfCraft's");
     }
 
     #[test]
     fn pdfcraft_still_matches_its_own_installer_name() {
-        let pdf = CraftApp::by_id("pdfcraft").unwrap();
+        let pdf = crate::testing::app("pdfcraft");
         assert!(is_installer_entry(pdf, "PdfCraft", LEARNING_MACHINES));
     }
 
     #[test]
     fn printcraft_entries_match_nothing_else() {
-        let pdf = CraftApp::by_id("pdfcraft").unwrap();
+        let pdf = crate::testing::app("pdfcraft");
         assert!(!is_installer_entry(pdf, "PrintCraft", "Some Other Publisher"));
         assert!(!is_installer_entry(pdf, "PhotoCraft", LEARNING_MACHINES));
-        for a in SUITE.iter().filter(|a| a.id != "pdfcraft") {
+        for a in crate::testing::catalog().apps.iter().filter(|a| a.id != "pdfcraft") {
             assert!(!is_installer_entry(a, "PrintCraft", LEARNING_MACHINES), "PrintCraft matched {}", a.name);
         }
     }
 
     #[test]
     fn pdfcraft_exe_is_sought_under_every_name_it_has_shipped_as() {
-        let pdf = CraftApp::by_id("pdfcraft").unwrap();
+        let pdf = crate::testing::app("pdfcraft");
         let location = PathBuf::from(r"D:\Apps\PrintCraft");
         let roots = roots();
         let mut want = vec![location.join("pdfcraft.exe"), location.join("printcraft.exe")];
@@ -620,12 +621,12 @@ mod tests {
     fn apps_without_former_names_match_and_find_their_exe_as_before() {
         let roots = roots();
         let location = PathBuf::from(r"D:\Apps\Somewhere");
-        for a in SUITE.iter().filter(|a| a.former_ids.is_empty() && a.former_names.is_empty()) {
-            assert!(is_installer_entry(a, a.name, LEARNING_MACHINES), "{}", a.name);
-            assert!(!is_installer_entry(a, a.name, "Some Other Publisher"), "{}", a.name);
+        for a in crate::testing::catalog().apps.iter().filter(|a| a.former_ids.is_empty() && a.former_names.is_empty()) {
+            assert!(is_installer_entry(a, &a.name, LEARNING_MACHINES), "{}", a.name);
+            assert!(!is_installer_entry(a, &a.name, "Some Other Publisher"), "{}", a.name);
             assert!(!is_installer_entry(a, &a.name.to_lowercase(), LEARNING_MACHINES), "{}", a.name);
             let exe = format!("{}.exe", a.id);
-            let in_program_files: Vec<PathBuf> = roots.iter().map(|r| r.join(a.name).join(&exe)).collect();
+            let in_program_files: Vec<PathBuf> = roots.iter().map(|r| r.join(&a.name).join(&exe)).collect();
             assert_eq!(exe_candidates(a, None, &roots), in_program_files);
             let with_location: Vec<PathBuf> = std::iter::once(location.join(&exe)).chain(in_program_files).collect();
             assert_eq!(exe_candidates(a, Some(&location), &roots), with_location);

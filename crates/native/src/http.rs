@@ -4,12 +4,12 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicU8, Ordering};
 
-use artcraft_launcher_core::protocol::{CANCELLED, PAUSED};
+use bd_launcher_core::protocol::{CANCELLED, PAUSED};
 use std::time::Duration;
 
 use sha2::{Digest, Sha256};
 
-const USER_AGENT: &str = concat!("ArtCraftLauncher/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("BDLauncher/", env!("CARGO_PKG_VERSION"));
 /// Largest JSON or text answer we read.
 const MAX_SMALL: u64 = 4 << 20;
 
@@ -32,14 +32,14 @@ pub enum Fetched {
 #[derive(Clone)]
 pub struct Http {
     small: ureq::Agent,
-    /// ArtCraft's release feed: a short timeout, so a slow server never holds up a check.
+    /// BD's release feed: a short timeout, so a slow server never holds up a check.
     feed: ureq::Agent,
     no_redirect: ureq::Agent,
     download: ureq::Agent,
     token: Option<String>,
 }
 
-/// Why ArtCraft's release feed couldn't be read.
+/// Why BD's release feed couldn't be read.
 #[derive(Debug)]
 pub struct FeedError {
     pub why: String,
@@ -97,7 +97,7 @@ impl Http {
             .new_agent();
         // An optional token raises GitHub's limit from 60 to 5000 requests an hour. Only ever sent
         // to api.github.com.
-        let token = std::env::var("ARTCRAFT_LAUNCHER_GITHUB_TOKEN").ok().map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
+        let token = std::env::var("BD_LAUNCHER_GITHUB_TOKEN").ok().map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
         Ok(Self { small, feed, no_redirect, download, token })
     }
 
@@ -137,7 +137,7 @@ impl Http {
         }
     }
 
-    /// ArtCraft's release feed, or why it couldn't be read. Never takes more than ~10 seconds.
+    /// BD's release feed, or why it couldn't be read. Never takes more than ~10 seconds.
     pub fn get_feed(&self, url: &str) -> Result<String, FeedError> {
         let failed = |why: String| FeedError { why, throttled: false, retry_after: None };
         let mut resp =
@@ -147,6 +147,29 @@ impl Http {
         match resp.status().as_u16() {
             200 => resp.body_mut().with_config().limit(MAX_SMALL).read_to_string().map_err(|e| failed(format!("unreadable answer ({e})"))),
             s => Err(FeedError { why: format!("{} answered HTTP {s}", host(url)), throttled: s == 429, retry_after }),
+        }
+    }
+
+    /// GET a JSON document, revalidating with `etag` when given. Used for the catalog, which
+    /// answers with an `ETag` so an unchanged catalog costs a small reply.
+    pub fn get_document(&self, url: &str, etag: Option<&str>) -> Result<Fetched, String> {
+        let mut req = self.small.get(url).header("Accept", "application/json");
+        if let Some(tag) = etag {
+            req = req.header("If-None-Match", tag);
+        }
+        let mut resp = req.call().map_err(|e| format!("couldn't reach {} ({e})", host(url)))?;
+        let header = |name: &str| resp.headers().get(name).and_then(|v| v.to_str().ok()).map(str::to_string);
+        let status = resp.status().as_u16();
+        match status {
+            200 => {
+                let etag = header("etag");
+                let text = resp.body_mut().with_config().limit(MAX_SMALL).read_to_string().map_err(|e| format!("unreadable answer ({e})"))?;
+                Ok(Fetched::Body { text, etag })
+            }
+            304 => Ok(Fetched::NotModified),
+            404 => Ok(Fetched::NotFound),
+            403 | 429 => Ok(Fetched::RateLimited { reset: None }),
+            s => Err(format!("{} answered HTTP {s}", host(url))),
         }
     }
 
@@ -864,17 +887,17 @@ pub(crate) mod tests {
         assert!(part.exists(), "a blocked partial file must be left alone");
     }
 
-    /// Live: a real Craft App release asset (`cargo test -p artcraft-launcher-native -- --ignored`).
+    /// Live: a real Craft App release asset (`cargo test -p bd-launcher-native -- --ignored`).
     #[test]
     #[ignore = "needs network access"]
     fn downloads_a_real_release_asset() {
         let http = Http::new().unwrap();
-        let Fetched::Body { text, .. } = http.get_api("https://api.github.com/repos/storytold/wordcraft/releases/latest", None).unwrap() else {
+        let Fetched::Body { text, .. } = http.get_api("https://api.github.com/repos/bd-tecnologia/wordcraft/releases/latest", None).unwrap() else {
             panic!("no release")
         };
-        let release = artcraft_launcher_core::release::parse_github_release(&text, "storytold/wordcraft").unwrap();
+        let release = bd_launcher_core::release::parse_github_release(&text, "bd-tecnologia/wordcraft").unwrap();
         let sums_url = &release.sums_asset().unwrap().url;
-        let sums = artcraft_launcher_core::release::parse_sha256sums(&http.get_text(sums_url).unwrap().unwrap());
+        let sums = bd_launcher_core::release::parse_sha256sums(&http.get_text(sums_url).unwrap().unwrap());
         let asset = release.assets.iter().find(|a| a.name.ends_with("freebsd-x86_64.tar.gz")).unwrap();
         let sha = asset.sha256.clone().or_else(|| sums.iter().find(|(_, n)| *n == asset.name).map(|(h, _)| h.clone())).unwrap();
         let dir = tempfile::tempdir().unwrap();
@@ -886,7 +909,7 @@ pub(crate) mod tests {
     /// Answers one request with `head` (status line and headers) and an empty body.
     fn answer_once(head: String) -> String {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let url = format!("http://{}/repos/storytold/photocraft/releases/latest", listener.local_addr().unwrap());
+        let url = format!("http://{}/repos/bd-tecnologia/photocraft/releases/latest", listener.local_addr().unwrap());
         std::thread::spawn(move || {
             let Ok((mut stream, _)) = listener.accept() else { return };
             let mut reader = BufReader::new(stream.try_clone().unwrap());

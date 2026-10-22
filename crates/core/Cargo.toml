@@ -1,6 +1,6 @@
 [package]
-name = "artcraft-launcher-core"
-description = "ArtCraft Launcher core: the Craft App Suite catalog, versions, release parsing and asset choice (pure, wasm-safe)"
+name = "bd-launcher-core"
+description = "BD Launcher core: the BD Apps catalog, versions, release parsing and asset choice (pure, wasm-safe)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,6 +9,11 @@ publish = false
 
 [lints]
 workspace = true
+
+[features]
+# Lets a build accept a plain `http` address on the developer's own machine, where
+# `cargo xtask local serve` puts the builds. Development only: release builds never enable it.
+local-mirror = []
 
 [dependencies]
 serde = { workspace = true }

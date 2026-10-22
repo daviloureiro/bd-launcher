@@ -7,7 +7,7 @@
 //! date is drawn many times a frame), so a laptop that travels keeps up; the web build asks the
 //! browser.
 
-use artcraft_launcher_core::time;
+use bd_launcher_core::time;
 
 /// `(year, month, day)` of the Unix time `secs` in the system's time zone.
 pub(crate) fn civil(secs: i64) -> (i64, u32, u32) {

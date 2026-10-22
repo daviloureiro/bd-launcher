@@ -17,7 +17,7 @@ pub enum InstallSource {
     Deb,
     /// An RPM package.
     Rpm,
-    /// An Arch Linux package: the release's own (`ai.storyteller.<app>`), or `<app>`, `<app>-bin`
+    /// An Arch Linux package: the release's own (`com.bdtecnologia.<app>`), or `<app>`, `<app>-bin`
     /// or `<app>-git` from the AUR or a repository.
     Pacman,
     /// A Flatpak.
@@ -31,7 +31,7 @@ pub enum InstallSource {
 impl InstallSource {
     pub fn label(self) -> &'static str {
         match self {
-            Self::Launcher => "ArtCraft Launcher",
+            Self::Launcher => "BD Launcher",
             Self::MacApp => "Applications folder",
             Self::Msi => "Windows Installer",
             Self::Deb => "Debian package",

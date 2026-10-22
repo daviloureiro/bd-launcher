@@ -134,7 +134,7 @@ fn complete_catalogs_cover_every_ui_literal() {
         include_str!("../views.rs"),
         include_str!("../widgets.rs"),
         // The desktop shell's tray menu and tooltip.
-        include_str!("../../../../apps/artcraft-launcher/src/tray.rs"),
+        include_str!("../../../../apps/bd-launcher/src/tray.rs"),
     ];
     let mut keys = BTreeSet::new();
     for source in sources {
@@ -181,8 +181,8 @@ fn complete_catalogs_cover_every_ui_literal() {
 #[test]
 fn complete_catalogs_translate_every_tagline() {
     for lang in Lang::all().filter(|l| l.complete_menus()) {
-        for app in &artcraft_launcher_core::SUITE {
-            assert_ne!(super::tr_ctx(lang, app.id, app.tagline), app.tagline, "{}: {}", lang.code(), app.id);
+        for app in &bd_launcher_core::catalog::fixtures().apps {
+            assert_ne!(super::tr_ctx(lang, &app.id, &app.tagline), app.tagline, "{}: {}", lang.code(), app.id);
         }
     }
 }
@@ -190,7 +190,7 @@ fn complete_catalogs_translate_every_tagline() {
 #[test]
 fn product_names_stay_in_english() {
     for lang in Lang::all() {
-        for name in ["ArtCraft Launcher", "Craft App Suite", "Launcher"] {
+        for name in ["BD Launcher", "BD Apps", "Launcher"] {
             assert_eq!(tr(lang, name), name, "{}", lang.code());
         }
     }
@@ -516,7 +516,7 @@ fn message_templates_match_real_messages() {
 
 #[test]
 fn complete_catalogs_translate_package_formats() {
-    use artcraft_launcher_core::PackageKind;
+    use bd_launcher_core::PackageKind;
     let kinds = [
         PackageKind::Msi,
         PackageKind::PortableZip,

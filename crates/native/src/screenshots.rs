@@ -4,7 +4,8 @@
 
 use std::path::Path;
 
-use artcraft_launcher_core::details::{AppDetails, MAX_SCREENSHOT_BYTES, looks_like_jpeg};
+use bd_launcher_core::catalog::App;
+use bd_launcher_core::details::{MAX_SCREENSHOT_BYTES, looks_like_jpeg};
 
 use crate::http::Http;
 use crate::paths::{Paths, write_atomic};
@@ -45,23 +46,24 @@ fn download(http: &Http, url: &str, saved: &Path) -> Result<Vec<u8>, Failure> {
     Ok(bytes)
 }
 
-/// Every picture of `details`, lead first, handed to `emit` one by one as it is had. Saved copies
-/// need no network. Once the network or the server has failed, the pictures still to fetch fail at
-/// once with the same reason instead of each waiting for its own timeout; saved ones are still
-/// served. A picture that is merely missing doesn't hold the others back.
-pub fn fetch_all(http: Option<&Http>, paths: &Paths, details: &AppDetails, mut emit: impl FnMut(&'static str, Result<Vec<u8>, String>)) {
+/// Every picture of `app`'s page, lead first, handed to `emit` one by one as it is had. Saved
+/// copies need no network. Once the network or the server has failed, the pictures still to fetch
+/// fail at once with the same reason instead of each waiting for its own timeout; saved ones are
+/// still served. A picture that is merely missing doesn't hold the others back.
+pub fn fetch_all(http: Option<&Http>, paths: &Paths, app: &App, storage: &str, mut emit: impl FnMut(&str, Result<Vec<u8>, String>)) {
+    let Some(details) = app.details.as_ref() else { return };
     let mut failed: Option<String> = None;
-    for shot in details.shots {
-        let saved = paths.screenshot(details.id, shot.key);
+    for shot in &details.shots {
+        let saved = paths.screenshot(&app.id, &shot.key);
         if let Some(bytes) = saved_copy(&saved) {
-            emit(shot.key, Ok(bytes));
+            emit(&shot.key, Ok(bytes));
             continue;
         }
         if let Some(why) = &failed {
-            emit(shot.key, Err(why.clone()));
+            emit(&shot.key, Err(why.clone()));
             continue;
         }
-        let result = match (http, details.screenshot_url(shot.key)) {
+        let result = match (http, app.screenshot_url(&shot.key, storage)) {
             (Some(http), Some(url)) => download(http, &url, &saved),
             (None, _) => Err(Failure::Network("HTTPS isn't available".into())),
             (_, None) => Err(Failure::Picture("this page has no such picture".into())),
@@ -74,10 +76,10 @@ pub fn fetch_all(http: Option<&Http>, paths: &Paths, details: &AppDetails, mut e
                 }
                 Failure::Picture(why) => why,
             };
-            log::warn!("picture {}/{} unavailable: {why}", details.id, shot.key);
+            log::warn!("picture {}/{} unavailable: {why}", app.id, shot.key);
             why
         });
-        emit(shot.key, result);
+        emit(&shot.key, result);
     }
 }
 
@@ -135,15 +137,17 @@ mod tests {
     #[test]
     fn saved_pictures_need_no_network_and_a_failure_ends_the_run() {
         let paths = Paths::under(tempfile::tempdir().unwrap().path());
-        let page = AppDetails::by_id("photocraft").unwrap();
+        let catalog = bd_launcher_core::catalog::sample();
+        let app = catalog.apps.first().unwrap();
+        let details = app.details.as_ref().unwrap();
         // The second picture is saved already; the first and the others need the network, which is not there.
-        let second = paths.screenshot(page.id, page.shots[1].key);
+        let second = paths.screenshot(&app.id, &details.shots[1].key);
         write_atomic(&second, &jpeg()).unwrap();
         let mut seen = Vec::new();
-        fetch_all(None, &paths, page, |key, result| seen.push((key, result)));
-        let keys: Vec<_> = seen.iter().map(|(k, _)| *k).collect();
-        assert_eq!(keys, page.shots.iter().map(|s| s.key).collect::<Vec<_>>(), "every picture is answered, in order");
-        assert!(seen[0].1.is_err() && seen[2].1.is_err() && seen[3].1.is_err());
+        fetch_all(None, &paths, app, &catalog.storage, |key, result| seen.push((key.to_string(), result)));
+        let keys: Vec<_> = seen.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(keys, details.shots.iter().map(|s| s.key.as_str()).collect::<Vec<_>>(), "every picture is answered, in order");
+        assert!(seen[0].1.is_err());
         assert_eq!(seen[1].1.as_ref().unwrap(), &jpeg());
     }
 }

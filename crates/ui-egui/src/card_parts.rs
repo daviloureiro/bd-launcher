@@ -3,7 +3,7 @@
 //!
 //! Invariants: nothing is drawn that has no content; dates come from `views::date_text`.
 
-use artcraft_launcher_core::status::AppStatus;
+use bd_launcher_core::status::AppStatus;
 use egui::{Color32, FontId, Ui};
 
 use crate::i18n::fmt;
