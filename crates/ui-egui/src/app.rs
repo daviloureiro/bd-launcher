@@ -691,7 +691,7 @@ impl LauncherUi {
                             if let Some(why) = &self.catalog_error {
                                 crate::widgets::hud(ui, tl!("The app list couldn't be loaded"), tokens.muted);
                                 ui.add_space(6.0);
-                                crate::widgets::hud(ui, why, tokens.faint);
+                                crate::widgets::hud(ui, &crate::i18n::msg(why), tokens.faint);
                             } else {
                                 crate::widgets::hud(ui, tl!("No apps match"), tokens.muted);
                             }

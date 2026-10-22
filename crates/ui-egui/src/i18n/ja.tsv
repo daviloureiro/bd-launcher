@@ -382,3 +382,7 @@ filter	Installed	インストール済み
 	Last updated: {date}	最終更新: {date}
 column	Version	バージョン
 	The app list couldn't be loaded	アプリの一覧を読み込めませんでした
+@msg	the catalog isn't published yet	カタログはまだ公開されていません
+@msg	the catalog isn't readable	カタログを読み取れません
+@msg	secure connections aren't available	安全な接続を利用できません
+@msg	Firebase is asking us to slow down	Firebase から速度を落とした多功能求められています

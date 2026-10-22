@@ -360,3 +360,7 @@ filter	Installed	Instaladas
 	Last updated: {date}	Última actualización: {date}
 column	Version	Versión
 	The app list couldn't be loaded	No se pudo cargar la lista de aplicaciones
+@msg	the catalog isn't published yet	el catálogo aún no se ha publicado
+@msg	the catalog isn't readable	el catálogo no se puede leer
+@msg	secure connections aren't available	no hay conexiones seguras disponibles
+@msg	Firebase is asking us to slow down	Firebase nos pide ir más despacio

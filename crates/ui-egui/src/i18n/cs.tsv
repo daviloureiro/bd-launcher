@@ -347,3 +347,7 @@ filter	Installed	Nainstalováno
 	Last updated: {date}	Naposledy aktualizováno: {date}
 column	Version	Verze
 	The app list couldn't be loaded	Seznam aplikací se nepodařilo načíst
+@msg	the catalog isn't published yet	katalog zatím nebyl zveřejněn
+@msg	the catalog isn't readable	katalog nelze přečíst
+@msg	secure connections aren't available	zabezpečené připojení není k dispozici
+@msg	Firebase is asking us to slow down	Firebase žádá, abychom zpomalili

@@ -375,3 +375,7 @@ filter	Installed	Установлены
 	Last updated: {date}	Последнее обновление: {date}
 column	Version	Версия
 	The app list couldn't be loaded	Не удалось загрузить список приложений
+@msg	the catalog isn't published yet	каталог ещё не опубликован
+@msg	the catalog isn't readable	не удаётся прочитать каталог
+@msg	secure connections aren't available	безопасные соединения недоступны
+@msg	Firebase is asking us to slow down	Firebase просит нас снизить темп

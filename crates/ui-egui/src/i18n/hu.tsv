@@ -380,3 +380,7 @@ filter	Installed	Telepítve
 	Last updated: {date}	Utoljára frissítve: {date}
 column	Version	Verzió
 	The app list couldn't be loaded	Az alkalmazáslista nem tölthető be
+@msg	the catalog isn't published yet	a katalógus még nincs közzétéve
+@msg	the catalog isn't readable	a katalógus nem olvasható
+@msg	secure connections aren't available	biztonságos kapcsolatok nem érhetők el
+@msg	Firebase is asking us to slow down	a Firebase lassabban megy

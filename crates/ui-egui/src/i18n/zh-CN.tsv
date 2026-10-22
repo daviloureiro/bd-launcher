@@ -347,3 +347,7 @@ figcraft	Interface design and prototyping	界面设计与原型制作
 	Last updated: {date}	最后更新：{date}
 column	Version	版本
 	The app list couldn't be loaded	无法加载应用列表
+@msg	the catalog isn't published yet	目录尚未发布
+@msg	the catalog isn't readable	无法读取目录
+@msg	secure connections aren't available	没有可用的安全连接
+@msg	Firebase is asking us to slow down	Firebase 要求我们放慢速度

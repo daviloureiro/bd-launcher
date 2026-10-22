@@ -213,7 +213,14 @@ impl NativeBackend {
         let catalog_store = self.catalog.clone();
         std::thread::spawn(move || {
             shared.emit(Event::CheckStarted);
-            let catalog = read_catalog(&catalog_store, &shared);
+            let Some(catalog) = read_catalog(&catalog_store, &shared) else {
+                // The reason was announced; there is nothing to show.
+                let at = crate::now();
+                *shared.last_check.lock().unwrap_or_else(PoisonError::into_inner) = Some(at);
+                shared.checking.store(false, Ordering::SeqCst);
+                shared.emit(Event::CheckFinished { at, source: Source::Cache, rate_limited_until: None });
+                return;
+            };
             let storage = catalog.storage.clone();
             *shared.catalog.lock().unwrap_or_else(PoisonError::into_inner) = catalog.clone();
             shared.emit(Event::Catalog(catalog.clone()));
@@ -629,28 +636,29 @@ fn planned_download(
 }
 
 /// The catalog, read from Firebase. The copy on disk stands in when Firebase can't be reached;
-/// with no copy at all the launcher says so, rather than showing an empty list.
-fn read_catalog(store: &CatalogStore, shared: &Shared) -> Catalog {
+/// with no copy at all the launcher says so, rather than showing an empty list. `None` means
+/// there is nothing to show and the reason has been announced.
+fn read_catalog(store: &CatalogStore, shared: &Shared) -> Option<Catalog> {
     let catalog = match store.fetch() {
-        Ok(Some(catalog)) => catalog,
+        Ok(Some(catalog)) => Some(catalog),
         // Not changed since the last read: the copy on disk is current.
-        Ok(None) => store.cached().unwrap_or_else(|| shared.catalog()),
+        Ok(None) => store.cached(),
         Err(e) => {
             log::warn!("the catalog could not be read: {e}");
             match store.cached() {
-                Some(catalog) => catalog,
+                Some(catalog) => Some(catalog),
                 None => {
                     shared.emit(Event::CatalogFailed(e));
-                    Catalog::builtin()
+                    None
                 }
             }
         }
-    };
+    }?;
     // A deployment may keep its files in another bucket.
-    match std::env::var("BD_LAUNCHER_STORAGE") {
+    Some(match std::env::var("BD_LAUNCHER_STORAGE") {
         Ok(storage) if !storage.trim().is_empty() => catalog.with_storage(&storage),
         _ => catalog,
-    }
+    })
 }
 
 /// The latest release of `app`, which service it came from, and the GitHub route used (for the

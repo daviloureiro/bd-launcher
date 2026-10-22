@@ -379,3 +379,7 @@ filter	Installed	Installiert
 	Last updated: {date}	Zuletzt aktualisiert: {date}
 column	Version	Version
 	The app list couldn't be loaded	Die App-Liste konnte nicht geladen werden
+@msg	the catalog isn't published yet	Der Katalog ist noch nicht veröffentlicht
+@msg	the catalog isn't readable	Der Katalog ist nicht lesbar
+@msg	secure connections aren't available	Sichere Verbindungen sind nicht verfügbar
+@msg	Firebase is asking us to slow down	Firebase bittet uns, langsamer zu sein
