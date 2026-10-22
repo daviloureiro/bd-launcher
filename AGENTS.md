@@ -104,10 +104,10 @@ only; English where there is none): never bundle a CJK font, they are 10 MB and 
 ### Other rules
 
 1. **Assets need attribution.** Every bundled asset gets a row in `ATTRIBUTION.md` (path, title,
-   author, source, license) in the same change. The BD name, logo and "A" mark in
+   author, source, license) in the same change. The BD name, logo and mark in
    `docs/brand/` (the header logo and the tray icon) are trademarks, **not MIT/Apache**
    (`docs/brand/LICENSE-brand.txt`): use them exactly as supplied, never redraw or recolor them.
-2. **Icons are generated.** The app icon and the tray icon are the supplied BD "A" mark from
+2. **Icons are generated.** The app icon and the tray icon are the supplied BD mark from
    `docs/brand/` (a trademark, not MIT/Apache); never edit the renders by hand. Run `packaging/icons.sh` (needs `resvg`; runs on any OS) and commit the outputs.
    `assets/app-icons/` is copied verbatim from each app's repo (`assets/app-icon/hicolor/128x128/apps/com.bdtecnologia.<app>.png`);
    refresh it from there, never redraw.

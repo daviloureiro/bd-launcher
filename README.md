@@ -355,7 +355,7 @@ with its author, source and license in [ATTRIBUTION.md](ATTRIBUTION.md).
 The app icons of the Craft apps (`assets/app-icons/`) are each app's own icon, copied unmodified
 from its repository and licensed like that app (MIT OR Apache-2.0).
 
-**The BD name, logo and "A" mark are not licensed under MIT or Apache-2.0.** They (everything
+**The BD name, logo and mark are not licensed under MIT or Apache-2.0.** They (everything
 in [`docs/brand/`](docs/brand/), plus the app icon in [`assets/app-icon/`](assets/app-icon/), the
 logo in the launcher's header and the "A" tray icon)
 are trademarks of the BD Team and are not covered by this license. They may be used only unmodified, and only as
