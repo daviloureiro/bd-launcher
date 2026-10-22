@@ -39,8 +39,8 @@ usage: cargo xtask publish --app <id> --version <x.y.z> --dir <folder> [options]
   --social <list>   BD's social accounts, as Name=address,Name=address
   --no-upload       the files are already in the bucket; only the catalog is written
   --launcher        publish BD Launcher's own release, not an app's
-  --project <id>    the Firebase project (default: bd-tecnologia)
-  --bucket <name>   the storage bucket (default: bd-tecnologia.firebasestorage.app)
+  --project <id>    the Firebase project (default: bdesk-bdtecnologia)
+  --bucket <name>   the storage bucket (default: bdesk-bdtecnologia.firebasestorage.app)
   --dry-run         print what would be done and stop
 
 The Realtime Database token always comes from the `BD_LAUNCHER_FIREBASE_TOKEN`
@@ -486,7 +486,7 @@ mod tests {
         // database, or the launcher never sees what was published.
         let base = database_url(&options());
         assert!(CATALOG_URL.starts_with(&base), "{CATALOG_URL} is not under {base}");
-        assert_eq!(base, "https://bd-tecnologia-default-rtdb.firebaseio.com");
+        assert_eq!(base, "https://bdesk-bdtecnologia-default-rtdb.firebaseio.com");
     }
 
     #[test]

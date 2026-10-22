@@ -19,15 +19,15 @@ use crate::release::{self, Asset, Release};
 use crate::version;
 
 /// The Firebase project the catalog and the bucket live in.
-pub const PROJECT: &str = "bd-tecnologia";
+pub const PROJECT: &str = "bdesk-bdtecnologia";
 
 /// The Firebase Realtime Database document the catalog is read from. A deployment can point
 /// somewhere else with the `BD_LAUNCHER_CATALOG_URL` environment variable.
-pub const CATALOG_URL: &str = "https://bd-tecnologia-default-rtdb.firebaseio.com/catalog.json";
+pub const CATALOG_URL: &str = "https://bdesk-bdtecnologia-default-rtdb.firebaseio.com/catalog.json";
 
 /// The Firebase Storage bucket the icons, the pictures and the downloads live in. A deployment
 /// can point somewhere else with the `BD_LAUNCHER_STORAGE` environment variable.
-pub const STORAGE_BUCKET: &str = "bd-tecnologia.firebasestorage.app";
+pub const STORAGE_BUCKET: &str = "bdesk-bdtecnologia.firebasestorage.app";
 
 /// The public address of a file in the storage bucket.
 pub fn storage_url(bucket: &str, path: &str) -> String {
@@ -897,11 +897,11 @@ mod tests {
 
     #[test]
     fn a_bucket_name_gets_the_storage_service_address() {
-        let json = r#"{"storage": "bd-tecnologia.firebasestorage.app", "apps": [{"id": "x", "icon": "icons/x.png"}]}"#;
+        let json = r#"{"storage": "bdesk-bdtecnologia.firebasestorage.app", "apps": [{"id": "x", "icon": "icons/x.png"}]}"#;
         let catalog = Catalog::parse(json).unwrap();
         assert_eq!(
             catalog.by_id("x").unwrap().icon_url(&catalog.storage).as_deref(),
-            Some("https://storage.googleapis.com/bd-tecnologia.firebasestorage.app/icons/x.png")
+            Some("https://storage.googleapis.com/bdesk-bdtecnologia.firebasestorage.app/icons/x.png")
         );
     }
 
