@@ -5877,6 +5877,7 @@ name = "xtask"
 version = "0.6.1"
 dependencies = [
  "bd-launcher-core",
+ "serde_json",
  "sha2",
 ]
 

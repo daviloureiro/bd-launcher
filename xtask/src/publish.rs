@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use bd_launcher_core::catalog::{CATALOG_URL, PROJECT, STORAGE_BUCKET};
+use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
 /// The Firebase project the catalog and the bucket live in.
@@ -125,8 +126,7 @@ pub fn run(args: &[&str]) -> Result<(), String> {
 
     // 4. BD's social accounts, when the run says which they are.
     if !options.social.is_empty() {
-        let links: Vec<String> =
-            options.social.iter().map(|(name, url)| format!("{{\"name\":{},\"url\":{}}}", json_string(name), json_string(url))).collect();
+        let links: Vec<String> = options.social.iter().map(|(name, url)| serde_json::json!({"name": name, "url": url}).to_string()).collect();
         write_catalog(&options, "catalog/social", &format!("[{}]", links.join(",")))?;
     }
     println!("\npublished {} {} to {}", if options.launcher { "BD Launcher" } else { &id }, options.version, id);
@@ -297,274 +297,67 @@ fn hex(bytes: &[u8]) -> String {
 /// The catalog entry of the published release: the app's own fields (the ones it already had,
 /// plus what this run says) and the new release.
 fn entry(options: &Options, files: &[File]) -> String {
-    let id = options.app.clone().unwrap_or_else(|| "bd-launcher".to_string());
-    let existing = options.token.as_deref().and_then(|token| read_catalog(options, &id, token)).unwrap_or_default();
-    let mut app = existing;
-    // The app's own fields: what the catalog already had, then what this run says.
-    set_field(&mut app, "id", &json_string(&id));
-    if let Some(name) = &options.name {
-        set_field(&mut app, "name", &json_string(name));
-    }
-    if let Some(tagline) = &options.tagline {
-        set_field(&mut app, "tagline", &json_string(tagline));
-    }
-    if let Some(color) = &options.color {
-        set_field(&mut app, "color", &json_string(color));
-    }
-    if options.icon.is_some() && !app.contains("\"icon\":") {
-        // The icon was uploaded to this address: the card has to know where to look for it.
-        set_field(&mut app, "icon", &json_string(&format!("icons/{id}.png")));
-    }
-    if let Some(file) = &options.app_file
-        && let Ok(text) = std::fs::read_to_string(file)
-    {
-        for (key, value) in json_object(&text) {
-            set_field(&mut app, &key, &value);
-        }
-    }
     if options.launcher {
         // The launcher's own entry is the release itself.
         return release(options, files);
     }
-    set_field(&mut app, "release", &release(options, files));
-    app
+    let existing = options.token.as_deref().and_then(|token| {
+        let id = options.app.clone().unwrap_or_else(|| "bd-launcher".to_string());
+        read_catalog(options, &id, token)
+    });
+    build_entry(existing.as_deref(), options, files)
+}
+
+/// Merges `existing` (the app's entry in the catalog, if any) with this run's fields and the
+/// new release. Anything that isn't a JSON object starts fresh, so a corrupt entry can never
+/// poison the merge.
+fn build_entry(existing: Option<&str>, options: &Options, files: &[File]) -> String {
+    let id = options.app.clone().unwrap_or_else(|| "bd-launcher".to_string());
+    let mut app: Map<String, Value> =
+        existing.and_then(|text| serde_json::from_str::<Value>(text).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default();
+    // The app's own fields: what the catalog already had, then what this run says.
+    app.insert("id".into(), Value::String(id.clone()));
+    if let Some(name) = &options.name {
+        app.insert("name".into(), Value::String(name.clone()));
+    }
+    if let Some(tagline) = &options.tagline {
+        app.insert("tagline".into(), Value::String(tagline.clone()));
+    }
+    if let Some(color) = &options.color {
+        app.insert("color".into(), Value::String(color.clone()));
+    }
+    if options.icon.is_some() && !app.contains_key("icon") {
+        // The icon was uploaded to this address: the card has to know where to look for it.
+        app.insert("icon".into(), Value::String(format!("icons/{id}.png")));
+    }
+    if let Some(file) = &options.app_file
+        && let Ok(text) = std::fs::read_to_string(file)
+        && let Ok(Value::Object(extra)) = serde_json::from_str::<Value>(&text)
+    {
+        for (key, value) in extra {
+            app.insert(key, value);
+        }
+    }
+    app.insert("release".into(), release_value(options, files));
+    Value::Object(app).to_string()
 }
 
 /// The release, as the catalog describes it.
 fn release(options: &Options, files: &[File]) -> String {
+    release_value(options, files).to_string()
+}
+
+/// The release, as a value (so the app's entry can carry it).
+fn release_value(options: &Options, files: &[File]) -> Value {
     let id = options.app.clone().unwrap_or_else(|| "bd-launcher".to_string());
-    let assets: Vec<String> =
-        files.iter().map(|f| format!("{{\"name\":{},\"size\":{},\"sha256\":{}}}", json_string(&f.name), f.size, json_string(&f.sha256))).collect();
-    format!(
-        "{{\"version\":{},\"tag\":{},\"published_at\":{},\"notes\":{},\"base\":{},\"assets\":[{}]}}",
-        json_string(&options.version),
-        json_string(&format!("v{}", options.version)),
-        now(),
-        json_string(&options.notes),
-        json_string(&format!("apps/{id}/{}/", options.version)),
-        assets.join(",")
-    )
-}
-
-/// A JSON string, quotes and all.
-fn json_string(text: &str) -> String {
-    let mut out = String::with_capacity(text.len() + 2);
-    out.push('"');
-    for c in text.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-    out
-}
-
-/// The top-level fields of a JSON object, as `key: value` pairs (the values are JSON already).
-fn json_object(text: &str) -> Vec<(String, String)> {
-    let Ok(value) = serde_json_lite(text) else { return Vec::new() };
-    value
-}
-
-/// A tiny JSON reader: enough for the flat objects the catalog and `app.json` hold.
-fn serde_json_lite(text: &str) -> Result<Vec<(String, String)>, String> {
-    let bytes: Vec<char> = text.chars().collect();
-    let mut at = 0usize;
-    skip_space(&bytes, &mut at);
-    if at >= bytes.len() || bytes[at] != '{' {
-        return Err("not an object".into());
-    }
-    at += 1;
-    let mut out = Vec::new();
-    loop {
-        skip_space(&bytes, &mut at);
-        if at < bytes.len() && bytes[at] == '}' {
-            return Ok(out);
-        }
-        let key = read_string(&bytes, &mut at)?;
-        skip_space(&bytes, &mut at);
-        if at >= bytes.len() || bytes[at] != ':' {
-            return Err("expected a colon".into());
-        }
-        at += 1;
-        skip_space(&bytes, &mut at);
-        let value = read_value(&bytes, &mut at)?;
-        out.push((key, value));
-        skip_space(&bytes, &mut at);
-        if at < bytes.len() && bytes[at] == ',' {
-            at += 1;
-        }
-    }
-}
-
-fn skip_space(bytes: &[char], at: &mut usize) {
-    while *at < bytes.len() && bytes[*at].is_whitespace() {
-        *at += 1;
-    }
-}
-
-fn read_string(bytes: &[char], at: &mut usize) -> Result<String, String> {
-    skip_space(bytes, at);
-    if *at >= bytes.len() || bytes[*at] != '"' {
-        return Err("expected a string".into());
-    }
-    *at += 1;
-    let mut out = String::new();
-    while *at < bytes.len() {
-        let c = bytes[*at];
-        *at += 1;
-        match c {
-            '"' => return Ok(out),
-            '\\' => {
-                let Some(next) = bytes.get(*at) else { return Err("a string that ends in the middle".into()) };
-                *at += 1;
-                out.push(match next {
-                    'n' => '\n',
-                    't' => '\t',
-                    'r' => '\r',
-                    'b' => '\u{8}',
-                    'f' => '\u{c}',
-                    'u' => {
-                        let hex: String = bytes.get(*at..*at + 4).ok_or("a short escape")?.iter().collect();
-                        *at += 4;
-                        char::from_u32(u32::from_str_radix(&hex, 16).map_err(|_| "a bad escape")?).unwrap_or('\u{fffd}')
-                    }
-                    other => *other,
-                });
-            }
-            c => out.push(c),
-        }
-    }
-    Err("a string that never ends".into())
-}
-
-fn read_value(bytes: &[char], at: &mut usize) -> Result<String, String> {
-    skip_space(bytes, at);
-    let Some(&first) = bytes.get(*at) else { return Err("nothing there".into()) };
-    if first == '"' {
-        let text = read_string(bytes, at)?;
-        return Ok(json_string(&text));
-    }
-    if first == '{' || first == '[' {
-        let close = if first == '{' { '}' } else { ']' };
-        let mut depth = 0usize;
-        let mut in_string = false;
-        let mut escaped = false;
-        let start = *at;
-        while *at < bytes.len() {
-            let c = bytes[*at];
-            *at += 1;
-            if in_string {
-                if escaped {
-                    escaped = false;
-                } else if c == '\\' {
-                    escaped = true;
-                } else if c == '"' {
-                    in_string = false;
-                }
-                continue;
-            }
-            match c {
-                '"' => in_string = true,
-                '{' | '[' => depth += 1,
-                '}' | ']' => {
-                    depth -= 1;
-                    if depth == 0 && c == close {
-                        return Ok(bytes[start..*at].iter().collect());
-                    }
-                }
-                _ => {}
-            }
-        }
-        return Err("an object that never ends".into());
-    }
-    // A number, a boolean or null.
-    let start = *at;
-    while *at < bytes.len() && !",}]\n\r ".contains(bytes[*at]) {
-        *at += 1;
-    }
-    if start == *at {
-        return Err("an empty value".into());
-    }
-    Ok(bytes[start..*at].iter().collect())
-}
-
-/// Puts a field in a JSON object, replacing it when it is already there.
-fn set_field(object: &mut String, key: &str, value: &str) {
-    let needle: Vec<char> = format!("\"{key}\":").chars().collect();
-    let chars: Vec<char> = object.chars().collect();
-    // Where the field is, if it is there.
-    let mut at = None;
-    let mut i = 0usize;
-    while i + needle.len() <= chars.len() {
-        if chars[i..i + needle.len()] == needle[..] {
-            at = Some(i);
-            break;
-        }
-        i += 1;
-    }
-    let Some(at) = at else {
-        // Not there yet: add it.
-        let needle: String = needle.iter().collect();
-        let trimmed = object.trim();
-        if let Some(without) = trimmed.strip_prefix('{')
-            && let Some(without) = without.strip_suffix('}')
-        {
-            // An object that is already there: the field goes in it.
-            let comma = if without.trim().is_empty() { "" } else { "," };
-            *object = format!("{{{without}{comma}{needle}{value}}}");
-        } else if let Some(without) = trimmed.strip_prefix('{') {
-            // An object that was never closed: close it and add the field.
-            let comma = if without.trim().is_empty() { "" } else { "," };
-            *object = format!("{{{without}{comma}{needle}{value}}}");
-        } else {
-            // Nothing there yet: the field is the whole object.
-            *object = format!("{{{needle}{value}}}");
-        }
-        return;
-    };
-    // Where the field's value ends.
-    let mut i = at + needle.len();
-    let mut depth = 0i32;
-    let mut in_string = false;
-    let mut escaped = false;
-    while i < chars.len() {
-        let c = chars[i];
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if c == '\\' {
-                escaped = true;
-            } else if c == '"' {
-                in_string = false;
-            }
-            i += 1;
-            continue;
-        }
-        match c {
-            '"' => in_string = true,
-            '{' | '[' => depth += 1,
-            '}' | ']' => {
-                if depth == 0 {
-                    break;
-                }
-                depth -= 1;
-            }
-            ',' if depth == 0 => break,
-            _ => {}
-        }
-        i += 1;
-    }
-    let mut out: String = chars[..at].iter().collect();
-    out.extend(needle.iter());
-    out.push_str(value);
-    out.extend(chars[i..].iter());
-    *object = out;
+    serde_json::json!({
+        "version": options.version,
+        "tag": format!("v{}", options.version),
+        "published_at": now(),
+        "notes": options.notes,
+        "base": format!("apps/{id}/{}/", options.version),
+        "assets": files.iter().map(|f| serde_json::json!({"name": f.name, "size": f.size, "sha256": f.sha256})).collect::<Vec<_>>(),
+    })
 }
 
 /// Uploads one file to the bucket, with the Firebase CLI.
@@ -714,45 +507,60 @@ mod tests {
     }
 
     #[test]
-    fn a_field_is_added_to_an_object_that_is_not_there_yet() {
-        let mut object = String::new();
-        set_field(&mut object, "id", "\"meuapp\"");
-        assert_eq!(object, "{\"id\":\"meuapp\"}");
-        set_field(&mut object, "name", "\"Meu App\"");
-        assert_eq!(object, "{\"id\":\"meuapp\",\"name\":\"Meu App\"}");
-    }
-
-    #[test]
-    fn a_field_is_added_and_replaced() {
-        let mut object = String::from("{\"id\":\"meuapp\"}");
-        set_field(&mut object, "name", "\"Meu App\"");
-        assert_eq!(object, "{\"id\":\"meuapp\",\"name\":\"Meu App\"}");
-        set_field(&mut object, "id", "\"outro\"");
-        assert_eq!(object, "{\"id\":\"outro\",\"name\":\"Meu App\"}");
-    }
-
-    #[test]
-    fn a_field_with_an_object_in_it_is_replaced_whole() {
-        let mut object = String::from("{\"release\":{\"version\":\"1.0.0\",\"assets\":[]},\"name\":\"x\"}");
-        set_field(&mut object, "release", "{\"version\":\"1.2.0\"}");
-        assert_eq!(object, "{\"release\":{\"version\":\"1.2.0\"},\"name\":\"x\"}");
-    }
-
-    #[test]
-    fn a_flat_json_object_is_read() {
-        let fields = json_object("{\"name\":\"Meu App\",\"color\":\"#1876ff\"}");
-        assert_eq!(fields.len(), 2);
-        assert_eq!(fields[0].0, "name");
-        assert_eq!(fields[0].1, "\"Meu App\"");
-    }
-
-    #[test]
-    fn the_icon_is_registered_when_one_is_published() {
+    fn an_apps_entry_keeps_what_it_already_had() {
         let mut opts = options();
-        opts.icon = Some(PathBuf::from("icon.png"));
+        opts.app_file = None;
         let files = vec![File { name: "meuapp-1.2.0-windows-x64.msi".into(), size: 7, sha256: "ab".repeat(32) }];
-        let text = entry(&opts, &files);
-        assert!(text.contains("\"icon\":\"icons/meuapp.png\""), "{text}");
+        // The catalog already knows the app: the entry starts from what is there.
+        let text = build_entry(Some("{\"id\":\"meuapp\",\"name\":\"Meu App\",\"color\":\"#123456\"}"), &opts, &files);
+        let value: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(value["name"], "Meu App");
+        assert_eq!(value["color"], "#123456");
+        assert_eq!(value["release"]["version"], "1.2.0");
+    }
+
+    #[test]
+    fn a_corrupt_existing_entry_starts_fresh() {
+        let opts = options();
+        let files = vec![File { name: "meuapp-1.2.0-windows-x64.msi".into(), size: 7, sha256: "ab".repeat(32) }];
+        for existing in ["", "not json", "[\"an\",\"array\"]", "42", "{\"unclosed\":"] {
+            let text = build_entry(Some(existing), &opts, &files);
+            let value: Value = serde_json::from_str(&text).unwrap();
+            assert_eq!(value["id"], "meuapp");
+            assert_eq!(value["release"]["version"], "1.2.0", "{existing:?}");
+        }
+        let text = build_entry(None, &opts, &files);
+        let value: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(value["id"], "meuapp");
+    }
+
+    #[test]
+    fn the_new_release_replaces_the_old_one_whole() {
+        let opts = options();
+        let files = vec![File { name: "meuapp-1.2.0-windows-x64.msi".into(), size: 9, sha256: "cd".repeat(32) }];
+        let old = "{\"id\":\"meuapp\",\"release\":{\"version\":\"1.0.0\",\"assets\":[{\"name\":\"old.msi\"}],\"extra\":\"gone\"}}";
+        let text = build_entry(Some(old), &opts, &files);
+        let value: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(value["release"]["version"], "1.2.0");
+        assert_eq!(value["release"]["assets"][0]["name"], "meuapp-1.2.0-windows-x64.msi");
+        assert!(value["release"].get("extra").is_none(), "{text}");
+    }
+
+    #[test]
+    fn an_app_file_merges_nested_objects() {
+        let dir = std::env::temp_dir().join(format!("bd-publish-test-{}-appfile", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("app.json");
+        std::fs::write(&file, "{\"name\":\"Meu App\",\"details\":{\"shots\":[{\"image\":\"a.png\"}],\"featured\":true}}").unwrap();
+        let mut opts = options();
+        opts.app_file = Some(file);
+        let files = vec![File { name: "meuapp-1.2.0-windows-x64.msi".into(), size: 7, sha256: "ab".repeat(32) }];
+        let text = build_entry(Some("{\"id\":\"meuapp\",\"name\":\"Old\"}"), &opts, &files);
+        let value: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(value["name"], "Meu App");
+        assert_eq!(value["details"]["shots"][0]["image"], "a.png");
+        assert_eq!(value["details"]["featured"], true);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -784,20 +592,22 @@ mod tests {
         opts.app = None;
         let files = vec![File { name: "bd-launcher-1.2.0-macos-universal.dmg".into(), size: 7, sha256: "ab".repeat(32) }];
         let text = entry(&opts, &files);
-        assert!(text.starts_with("{\"version\":\"1.2.0\""), "{text}");
-        assert!(text.contains("\"base\":\"apps/bd-launcher/1.2.0/\""), "{text}");
+        let value: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(value["version"], "1.2.0");
+        assert_eq!(value["base"], "apps/bd-launcher/1.2.0/");
     }
 
     #[test]
-    fn an_apps_entry_keeps_what_it_already_had() {
+    fn the_icon_is_registered_when_one_is_published() {
         let mut opts = options();
-        opts.app_file = None;
+        opts.icon = Some(PathBuf::from("icon.png"));
         let files = vec![File { name: "meuapp-1.2.0-windows-x64.msi".into(), size: 7, sha256: "ab".repeat(32) }];
-        // The catalog already knows the app: the entry starts from what is there.
-        let mut existing = String::from("{\"id\":\"meuapp\",\"name\":\"Meu App\",\"color\":\"#123456\"}");
-        set_field(&mut existing, "release", &release(&opts, &files));
-        assert!(existing.contains("\"name\":\"Meu App\""));
-        assert!(existing.contains("\"color\":\"#123456\""));
-        assert!(existing.contains("\"version\":\"1.2.0\""));
+        let text = build_entry(None, &opts, &files);
+        let value: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(value["icon"], "icons/meuapp.png");
+        // An icon the catalog already has is kept, not overwritten.
+        let text = build_entry(Some("{\"id\":\"meuapp\",\"icon\":\"icons/custom.png\"}"), &opts, &files);
+        let value: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(value["icon"], "icons/custom.png");
     }
 }
