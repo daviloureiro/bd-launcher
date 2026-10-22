@@ -1528,16 +1528,14 @@ mod freebsd {
     fn copy_tree_as_root(tree: &Path, rel: &[PathBuf], prefix: &Path) -> Result<(), String> {
         use std::collections::BTreeMap;
         let mut by_dir: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
-        let mut dirs = Vec::new();
         for r in rel {
             let dest = prefix.join(r);
             parents_have_no_links(&dest, prefix)?;
             let parent = dest.parent().ok_or("a file has no parent folder")?.to_path_buf();
-            if !by_dir.contains_key(&parent) {
-                dirs.push(parent.clone());
-            }
             by_dir.entry(parent).or_default().push(tree.join(r));
         }
+        // Sorted, so the folders are made in a stable order.
+        let dirs: Vec<PathBuf> = by_dir.keys().cloned().collect();
         let mut mkdir: Vec<&OsStr> = vec![OsStr::new("/bin/mkdir"), OsStr::new("-p"), OsStr::new("--")];
         mkdir.extend(dirs.iter().map(|d| d.as_os_str()));
         run_as_root(&mkdir)?;
