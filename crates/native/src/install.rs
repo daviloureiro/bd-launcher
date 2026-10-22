@@ -109,6 +109,8 @@ pub fn install_at(
                 if release.version.is_some() && crate::detect::windows::executable_version(&record.path).as_ref() != release.version.as_ref() {
                     return Err("The portable executable does not match the selected version. The installation was rolled back.".into());
                 }
+                // The executable came from the catalog: only run what BD signed.
+                windows::verify_signature(&record.path)?;
                 match commit.as_deref_mut() {
                     Some(commit) => commit(record),
                     None => Ok(()),
@@ -1312,7 +1314,34 @@ pub mod macos {
 #[cfg(unix)]
 #[allow(dead_code)]
 mod tree {
+    use std::path::Component;
+
     use super::*;
+
+    const MAX_FILES: usize = 10_000;
+    const MAX_BYTES: u64 = 4 * 1024 * 1024 * 1024;
+
+    /// Whether `rel` is a path the tree install may write: `bin/` or `share/` with only
+    /// normal components. Anything else (notably `etc/`, `..`, absolute paths) is refused,
+    /// so a tarball can never gain a file outside the two folders the launcher owns.
+    pub fn allowed(rel: &Path) -> bool {
+        if rel.as_os_str().is_empty() || rel.as_os_str().len() > 256 {
+            return false;
+        }
+        let mut parts = rel.components();
+        let first = match parts.next() {
+            Some(Component::Normal(f)) if f == "bin" || f == "share" => f,
+            _ => return false,
+        };
+        let mut count = 1;
+        for c in parts {
+            if !matches!(c, Component::Normal(_)) {
+                return false;
+            }
+            count += 1;
+        }
+        if first == "bin" { count == 2 } else { (2..=5).contains(&count) }
+    }
 
     /// Unpacks `file` and returns a staging folder laid out like `/usr/local`.
     pub fn unpack(app: &App, file: &Path, staging: &Path) -> Result<PathBuf, String> {
@@ -1320,11 +1349,41 @@ mod tree {
         std::fs::create_dir_all(staging).map_err(|e| format!("couldn't create {} ({e})", staging.display()))?;
         let gz = std::fs::File::open(file).map_err(|e| e.to_string())?;
         let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(gz));
-        archive.set_preserve_permissions(true);
-        // `unpack` refuses entries that would land outside `staging` (`..`, absolute paths).
-        archive.unpack(staging).map_err(|e| format!("couldn't unpack the download ({e})"))?;
+        archive.set_preserve_permissions(false);
+        let mut total = 0u64;
+        let mut count = 0usize;
+        let mut seen = std::collections::BTreeSet::new();
+        let entries = archive.entries().map_err(|e| format!("couldn't read the download ({e})"))?;
+        for entry in entries {
+            let mut entry = entry.map_err(|e| format!("couldn't read the download ({e})"))?;
+            let path = entry.path().map_err(|e| format!("couldn't read the download ({e})"))?.into_owned();
+            if path.is_absolute() || path.components().any(|c| !matches!(c, Component::Normal(_))) {
+                return Err("the download contains an unsafe path".into());
+            }
+            match entry.header().entry_type() {
+                tar::EntryType::Regular | tar::EntryType::Directory | tar::EntryType::GNUSparse => {}
+                _ => return Err("the download contains a link or special file".into()),
+            }
+            if entry.header().mode().is_ok_and(|m| m & 0o170000 == 0o120000) {
+                return Err("the download contains a link or special file".into());
+            }
+            count += 1;
+            if count > MAX_FILES {
+                return Err("the download contains too many files".into());
+            }
+            let size = entry.header().size().unwrap_or(0);
+            total = total.checked_add(size).filter(|t| *t <= MAX_BYTES).ok_or("the download is too large")?;
+            if !seen.insert(path.clone()) {
+                return Err("the download contains duplicate paths".into());
+            }
+            entry.unpack_in(staging).map_err(|e| format!("couldn't unpack the download ({e})"))?;
+        }
+        if count == 0 {
+            return Err("the download is empty".into());
+        }
         let top = single_top_folder(staging)?;
         if top.join("bin").join(app.id).is_file() {
+            check_tree(&top)?;
             return Ok(top);
         }
         // Flat layout: put each file where /usr/local keeps it.
@@ -1336,7 +1395,7 @@ mod tree {
             (top.join(format!("{id}.desktop")), tree.join("share/applications").join(format!("{id}.desktop"))),
             (top.join(format!("{id}.png")), tree.join("share/pixmaps").join(format!("{id}.png"))),
         ] {
-            if from.is_file() {
+            if std::fs::symlink_metadata(&from).is_ok_and(|m| m.is_file() && !m.is_symlink()) {
                 if let Some(dir) = to.parent() {
                     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
                 }
@@ -1346,19 +1405,38 @@ mod tree {
         if !tree.join("bin").join(app.id).is_file() {
             return Err("the download doesn't contain the app".into());
         }
+        check_tree(&tree)?;
         Ok(tree)
     }
 
-    /// Every file under `root`, relative to it.
+    /// Every entry under `root` is a regular file in `bin/` or `share/`: anything else means
+    /// the tarball carried something the install must not copy.
+    fn check_tree(root: &Path) -> Result<(), String> {
+        for rel in files(root) {
+            if !allowed(&rel) {
+                return Err("the download contains an unexpected file".into());
+            }
+        }
+        Ok(())
+    }
+
+    /// Every regular file under `root`, relative to it. Symlinks are never followed and
+    /// never listed: a link in the staging folder is skipped, not walked through.
     pub fn files(root: &Path) -> Vec<PathBuf> {
         let mut out = Vec::new();
         let mut stack = vec![root.to_path_buf()];
         while let Some(dir) = stack.pop() {
             for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
                 let p = entry.path();
-                if p.is_dir() {
+                let Ok(meta) = std::fs::symlink_metadata(&p) else { continue };
+                if meta.is_symlink() {
+                    continue;
+                }
+                if meta.is_dir() {
                     stack.push(p);
-                } else if let Ok(rel) = p.strip_prefix(root) {
+                } else if meta.is_file()
+                    && let Ok(rel) = p.strip_prefix(root)
+                {
                     out.push(rel.to_path_buf());
                 }
             }
@@ -1387,19 +1465,25 @@ mod freebsd {
     fn install_from(app: &App, file: &Path, staging: &Path) -> Result<(PathBuf, Vec<PathBuf>, bool), String> {
         let tree = tree::unpack(app, file, staging)?;
         let rel = tree::files(&tree);
-        let mut source = tree.into_os_string();
-        source.push("/.");
+        // `unpack` already checked, but the install runs as root: re-check every path here.
+        if rel.is_empty() || rel.len() > 10_000 {
+            return Err("the download doesn't contain the app".into());
+        }
+        for r in &rel {
+            if !tree::allowed(r) {
+                return Err("the download contains an unexpected file".into());
+            }
+            if std::fs::symlink_metadata(tree.join(r)).is_ok_and(|m| m.is_symlink() || !m.is_file()) {
+                return Err("the download contains a link or special file".into());
+            }
+        }
         if which("pkexec").is_some() {
             let prefix = PathBuf::from("/usr/local");
-            run_as_root(&[OsStr::new("/bin/cp"), OsStr::new("-R"), &source, prefix.as_os_str()])?;
+            copy_tree_as_root(&tree, &rel, &prefix)?;
             return Ok((prefix.join("bin").join(app.id), rel.iter().map(|r| prefix.join(r)).collect(), true));
         }
         let prefix = dirs::home_dir().ok_or("no home folder")?.join(".local");
-        std::fs::create_dir_all(&prefix).map_err(|e| e.to_string())?;
-        let status = process::command("/bin/cp").arg("-R").arg(&source).arg(&prefix).status().map_err(|e| e.to_string())?;
-        if !status.success() {
-            return Err("couldn't copy the app into ~/.local".into());
-        }
+        copy_tree_local(&tree, &rel, &prefix)?;
         // ~/.local/bin is often not on PATH for the desktop: point the menu entry at the binary.
         let bin = prefix.join("bin").join(app.id);
         let desktop = prefix.join("share/applications").join(format!("{}.desktop", app.bundle_id()));
@@ -1408,7 +1492,9 @@ mod freebsd {
             let fixed: String = text
                 .lines()
                 .map(|l| {
-                    if let Some(rest) = l.strip_prefix("Exec=").and_then(|r| r.strip_prefix(app.id)) {
+                    if let Some(rest) = l.strip_prefix("Exec=").and_then(|r| r.strip_prefix(app.id))
+                        && (rest.is_empty() || rest.starts_with([' ', '\t']))
+                    {
                         format!("{exec}{rest}\n")
                     } else {
                         format!("{l}\n")
@@ -1420,10 +1506,109 @@ mod freebsd {
         Ok((bin, rel.iter().map(|r| prefix.join(r)).collect(), false))
     }
 
+    /// No ancestor of `path` below `prefix` may be a link: removing or writing through one
+    /// would reach outside the install folder.
+    fn parents_have_no_links(path: &Path, prefix: &Path) -> Result<(), String> {
+        let mut dir = path.parent().ok_or("a file has no parent folder")?;
+        while dir.starts_with(prefix) && dir != prefix {
+            if let Ok(meta) = std::fs::symlink_metadata(dir) {
+                if meta.is_symlink() || !meta.is_dir() {
+                    return Err("a folder in the install path is a link".into());
+                }
+            }
+            let Some(parent) = dir.parent() else { break };
+            dir = parent;
+        }
+        Ok(())
+    }
+
+    /// Copies the validated staging files into `prefix` as root, one `cp` per folder so the
+    /// password is asked once per folder, not once per file. Every path is already known:
+    /// nothing outside `bin/` and `share/` is ever named.
+    fn copy_tree_as_root(tree: &Path, rel: &[PathBuf], prefix: &Path) -> Result<(), String> {
+        use std::collections::BTreeMap;
+        let mut by_dir: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
+        let mut dirs = Vec::new();
+        for r in rel {
+            let dest = prefix.join(r);
+            parents_have_no_links(&dest, prefix)?;
+            let parent = dest.parent().ok_or("a file has no parent folder")?.to_path_buf();
+            if !by_dir.contains_key(&parent) {
+                dirs.push(parent.clone());
+            }
+            by_dir.entry(parent).or_default().push(tree.join(r));
+        }
+        let mut mkdir: Vec<&OsStr> = vec![OsStr::new("/bin/mkdir"), OsStr::new("-p"), OsStr::new("--")];
+        mkdir.extend(dirs.iter().map(|d| d.as_os_str()));
+        run_as_root(&mkdir)?;
+        for (dir, sources) in &by_dir {
+            let mut args: Vec<&OsStr> = vec![OsStr::new("/bin/cp")];
+            args.extend(sources.iter().map(|s| s.as_os_str()));
+            args.push(dir.as_os_str());
+            run_as_root(&args)?;
+        }
+        // The archive's modes are not trusted: binaries run, the rest only reads.
+        let (mut exec, mut data) = (Vec::new(), Vec::new());
+        for r in rel {
+            let dest = prefix.join(r);
+            if r.starts_with("bin") {
+                exec.push(dest);
+            } else {
+                data.push(dest);
+            }
+        }
+        if !exec.is_empty() {
+            let mut args: Vec<&OsStr> = vec![OsStr::new("/bin/chmod"), OsStr::new("755"), OsStr::new("--")];
+            args.extend(exec.iter().map(|p| p.as_os_str()));
+            run_as_root(&args)?;
+        }
+        if !data.is_empty() {
+            let mut args: Vec<&OsStr> = vec![OsStr::new("/bin/chmod"), OsStr::new("644"), OsStr::new("--")];
+            args.extend(data.iter().map(|p| p.as_os_str()));
+            run_as_root(&args)?;
+        }
+        Ok(())
+    }
+
+    /// Copies the validated staging files into `prefix` without root, never following a link.
+    #[cfg(unix)]
+    fn copy_tree_local(tree: &Path, rel: &[PathBuf], prefix: &Path) -> Result<(), String> {
+        use std::os::unix::fs::PermissionsExt;
+        for r in rel {
+            let dest = prefix.join(r);
+            parents_have_no_links(&dest, prefix)?;
+            if std::fs::symlink_metadata(&dest).is_ok_and(|m| m.is_symlink()) {
+                return Err("a file in the install path is a link".into());
+            }
+            if let Some(parent) = dest.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| format!("couldn't create {} ({e})", parent.display()))?;
+            }
+            std::fs::copy(tree.join(r), &dest).map_err(|e| format!("couldn't copy {} ({e})", dest.display()))?;
+            let mode = if r.starts_with("bin") { 0o755 } else { 0o644 };
+            std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(mode)).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
     /// Removes the files a tree install put down.
     pub fn remove_files(files: &[PathBuf], needs_root: bool) -> Result<(), String> {
-        if files.is_empty() {
+        if files.is_empty() || files.len() > 10_000 {
             return Err("the launcher has no record of these files".into());
+        }
+        for f in files {
+            if !f.is_absolute() {
+                return Err("the launcher has no record of these files".into());
+            }
+            if needs_root {
+                if !f.starts_with("/usr/local") {
+                    return Err("the launcher has no record of these files".into());
+                }
+                let Ok(rel) = f.strip_prefix("/usr/local") else { return Err("the launcher has no record of these files".into()) };
+                if !tree::allowed(rel) {
+                    return Err("the launcher has no record of these files".into());
+                }
+                parents_have_no_links(f, Path::new("/usr/local"))?;
+            }
         }
         if needs_root {
             let mut args: Vec<&OsStr> = vec![OsStr::new("/bin/rm"), OsStr::new("-f"), OsStr::new("--")];
@@ -1459,6 +1644,19 @@ pub(crate) fn msi_path(msi: &Path) -> Result<PathBuf, String> {
     resolved.map_err(|e| format!("couldn't resolve the Windows Installer package {} ({e})", msi.display()))
 }
 
+/// The publisher every Windows payload must be signed by. Mirrors the macOS team-id pin
+/// (`macos::TEAM_ID`): a valid signature from anyone else is refused.
+#[cfg_attr(not(windows), allow(dead_code))]
+const WINDOWS_PUBLISHER: &str = "BD Tecnologia";
+
+/// Whether PowerShell's signature report says the file carries a valid signature from the
+/// publisher. The report is `Status|Subject`, one line.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn signature_trusted(report: &str) -> bool {
+    let Some((status, subject)) = report.trim().split_once('|') else { return false };
+    status.trim() == "Valid" && subject.contains(WINDOWS_PUBLISHER)
+}
+
 #[cfg(windows)]
 pub mod windows {
     use bd_launcher_core::protocol::CANCELLED;
@@ -1467,6 +1665,28 @@ pub mod windows {
 
     fn msiexec() -> PathBuf {
         std::env::var_os("SystemRoot").map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from).join(r"System32\msiexec.exe")
+    }
+
+    /// Verifies the Authenticode signature of a payload downloaded from the catalog before it
+    /// is run or installed. The path travels in an environment variable, never interpolated
+    /// into the script.
+    pub fn verify_signature(path: &Path) -> Result<(), String> {
+        const VAR: &str = "BD_VERIFY_PATH";
+        let Some(text) = path.to_str() else { return Err("unusual characters in a download's path".into()) };
+        let powershell = std::env::var_os("SystemRoot")
+            .map_or_else(|| PathBuf::from(r"C:\Windows"), PathBuf::from)
+            .join(r"System32\WindowsPowerShell\v1.0\powershell.exe");
+        let mut cmd = process::command(powershell);
+        cmd.args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "$s = Get-AuthenticodeSignature -FilePath $env:BD_VERIFY_PATH; \"$($s.Status)|$($s.SignerCertificate.Subject)\"",
+        ]);
+        cmd.env(VAR, text);
+        let out = crate::process::run_command(cmd, "powershell.exe", std::time::Duration::from_secs(60))
+            .map_err(|e| format!("couldn't check the download's signature ({e})"))?;
+        if signature_trusted(&out) { Ok(()) } else { Err("the download isn't signed by BD Tecnologia; refusing to run it".into()) }
     }
 
     fn explain(code: Option<i32>) -> Result<(), String> {
@@ -1481,7 +1701,9 @@ pub mod windows {
     }
 
     /// Runs an MSI with a progress window and no restart. Windows asks for permission itself.
+    /// The package's signature is verified first: only BD's own signed builds run.
     pub fn run_msi(msi: &Path, destination: Option<&Path>, stop: &Stop, phase: &mut dyn FnMut(JobPhase)) -> Result<(), String> {
+        verify_signature(msi)?;
         in_turn(stop, phase, JobPhase::Installing, || {
             use std::os::windows::process::CommandExt;
             let mut command = msi_command(&msiexec(), msi)?;
@@ -1550,6 +1772,15 @@ mod tests {
         let missing = dir.path().join("missing.msi");
         let error = msi_command(Path::new("msiexec.exe"), &missing).unwrap_err();
         assert!(error.contains("couldn't resolve the Windows Installer package"), "{error}");
+    }
+
+    #[test]
+    fn only_the_publishers_valid_signature_is_trusted() {
+        assert!(signature_trusted("Valid|CN=BD Tecnologia, O=BD Tecnologia"));
+        assert!(!signature_trusted("Valid|CN=Someone Else, O=Evil"));
+        assert!(!signature_trusted("NotSigned|CN=BD Tecnologia"));
+        assert!(!signature_trusted(""));
+        assert!(!signature_trusted("Valid"));
     }
 
     #[cfg(windows)]
@@ -1923,6 +2154,48 @@ mod tests {
         let bad = dir.path().join("bad.tar.gz");
         tarball(&bad, &["x/README.md"]);
         assert!(tree::unpack(app, &bad, &dir.path().join("staging")).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_hostile_tarball_writes_nothing_outside_bin_and_share() {
+        let app = crate::testing::app("wordcraft");
+        let dir = tempfile::tempdir().unwrap();
+        assert!(tree::allowed(Path::new("bin/wordcraft")));
+        assert!(tree::allowed(Path::new("share/applications/com.bdtecnologia.wordcraft.desktop")));
+        for bad in ["etc/cron.d/evil", "../escape", "bin/", "", "share/a/b/c/d/e/f"] {
+            assert!(!tree::allowed(Path::new(bad)), "{bad}");
+        }
+        // A symlink entry is refused, not written.
+        let link = dir.path().join("link.tar.gz");
+        {
+            let f = std::fs::File::create(&link).unwrap();
+            let mut b = tar::Builder::new(flate2::write::GzEncoder::new(f, flate2::Compression::fast()));
+            let mut h = tar::Header::new_gnu();
+            h.set_entry_type(tar::EntryType::Symlink);
+            h.set_size(0);
+            h.set_cksum();
+            b.append_link(&mut h, "x/bin/wordcraft", "/etc/passwd").unwrap();
+            b.into_inner().unwrap().finish().unwrap();
+        }
+        assert!(tree::unpack(app, &link, &dir.path().join("staging")).is_err());
+        assert!(!dir.path().join("staging/x/bin/wordcraft").exists());
+        // An absolute path is refused.
+        let abs = dir.path().join("abs.tar.gz");
+        tarball(&abs, &["/bin/wordcraft"]);
+        assert!(tree::unpack(app, &abs, &dir.path().join("staging")).is_err());
+        // A tree carrying `etc/` is refused, so a root copy could never reach /usr/local/etc.
+        let etc = dir.path().join("etc.tar.gz");
+        tarball(&etc, &["x/bin/wordcraft", "x/etc/evil"]);
+        assert!(tree::unpack(app, &etc, &dir.path().join("staging")).is_err());
+        // Links on disk are never listed and never walked through.
+        let root = dir.path().join("root");
+        std::fs::create_dir_all(root.join("bin")).unwrap();
+        std::fs::write(root.join("bin/wordcraft"), b"hi").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("/etc", root.join("linked")).unwrap();
+        let files = tree::files(&root);
+        assert_eq!(files, vec![PathBuf::from("bin/wordcraft")]);
     }
 
     #[cfg(target_os = "linux")]

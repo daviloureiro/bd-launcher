@@ -20,8 +20,8 @@ concurrency:
 jobs:
   release:
     # The shared workflows live in the upstream organisation. Point them at your own copy when
-# you have one; they are tracked at @main (not SHA-pinned) so fixes reach every app.
-    uses: storytold/craft-common-actions/.github/workflows/release.yml@main
+# you have one; they are pinned, so update them deliberately.
+    uses: storytold/craft-common-actions/.github/workflows/release.yml@2446e3bd4f08cb303a6b590be5ff5a0def2bf534 # main
     with:
       app-name: bd-launcher
       app-title: BD Launcher

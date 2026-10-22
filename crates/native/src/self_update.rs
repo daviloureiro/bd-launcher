@@ -265,22 +265,26 @@ pub fn update(
             relaunch_flatpak_after_exit()
         }
         #[cfg(windows)]
-        Install::Msi(exe) => windows_helper(pid, &msi_update_step(&file)?, exe),
+        Install::Msi(exe) => {
+            install::windows::verify_signature(&file)?;
+            windows_helper(pid, &msi_update_step(&file)?, exe)
+        }
         #[cfg(windows)]
         Install::Portable(exe) => {
             let dir = exe.parent().ok_or("the launcher isn't in a folder")?;
             let tmp = paths.cache.join("launcher-update");
-            windows_helper(
+            let name = exe.file_name().and_then(|n| n.to_str()).ok_or("the launcher isn't in a folder")?;
+            portable_update_step(&file, &tmp, dir, name)?;
+            windows_helper_env(
                 pid,
-                &format!(
-                    "$t = {tmp}; Remove-Item -LiteralPath $t -Recurse -Force -ErrorAction SilentlyContinue; Expand-Archive -LiteralPath {zip} -DestinationPath $t -Force; \
-                     $top = Get-ChildItem -LiteralPath $t | Select-Object -First 1; Copy-Item -Path (Join-Path $top.FullName '*') -Destination {dir} -Recurse -Force; \
-                     Remove-Item -LiteralPath $t -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath {zip} -ErrorAction SilentlyContinue",
-                    tmp = ps_quote(&tmp),
-                    zip = ps_quote(&file),
-                    dir = ps_quote(dir),
-                ),
+                PORTABLE_UPDATE_SCRIPT,
                 exe,
+                &[
+                    ("BD_UPDATE_ZIP", file.as_os_str()),
+                    ("BD_UPDATE_TMP", tmp.as_os_str()),
+                    ("BD_UPDATE_DIR", dir.as_os_str()),
+                    ("BD_UPDATE_EXE", std::ffi::OsStr::new(name)),
+                ],
             )
         }
         #[allow(unreachable_patterns)]
@@ -394,10 +398,81 @@ fn relaunch_flatpak_after_exit() -> Result<(), String> {
 /// Starts a hidden PowerShell that waits for `pid` to exit, runs `step`, then starts `exe`.
 #[cfg(windows)]
 fn windows_helper(pid: u32, step: &str, exe: &Path) -> Result<(), String> {
+    windows_helper_env(pid, step, exe, &[])
+}
+
+/// [`windows_helper`] with paths in environment variables instead of the script text, so a
+/// quote in a path can never break out of the script.
+#[cfg(windows)]
+fn windows_helper_env(pid: u32, step: &str, exe: &Path, env: &[(&str, &std::ffi::OsStr)]) -> Result<(), String> {
+    for (_, value) in env {
+        check_ps_value(value)?;
+    }
+    check_ps_path(exe)?;
     let script = format!("Wait-Process -Id {pid} -Timeout 60 -ErrorAction SilentlyContinue; {step}; Start-Process -FilePath {}", ps_quote(exe));
     let mut cmd = process::command("powershell.exe");
     cmd.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", &script]).env_remove(PRETEND_VAR);
+    for (key, value) in env {
+        cmd.env(key, value);
+    }
     process::spawn_detached(cmd).map_err(|e| format!("couldn't schedule the update ({e})"))
+}
+
+/// A value is only put in the helper's environment when it has no control characters.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn check_ps_value(value: &std::ffi::OsStr) -> Result<(), String> {
+    let Some(text) = value.to_str() else { return Err("unusual characters in a path".into()) };
+    if text.chars().any(|c| c.is_control()) {
+        return Err("unusual characters in a path".into());
+    }
+    Ok(())
+}
+
+/// A path is only put in a PowerShell script (quoted) or environment when it has no control
+/// characters: a newline in a single-quoted literal would otherwise start a new statement.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn check_ps_path(path: &Path) -> Result<(), String> {
+    let Some(text) = path.to_str() else { return Err("unusual characters in a path".into()) };
+    if text.chars().any(|c| c.is_control()) {
+        return Err("unusual characters in a path".into());
+    }
+    Ok(())
+}
+
+/// Replaces the portable folder after exit: unpack, check the new executable carries BD's
+/// signature, then copy it over. Every path travels in an environment variable, never in
+/// the script text.
+#[cfg_attr(not(windows), allow(dead_code))]
+const PORTABLE_UPDATE_SCRIPT: &str = "$t = $env:BD_UPDATE_TMP; $z = $env:BD_UPDATE_ZIP; $d = $env:BD_UPDATE_DIR; \
+    Remove-Item -LiteralPath $t -Recurse -Force -ErrorAction SilentlyContinue; \
+    Expand-Archive -LiteralPath $z -DestinationPath $t -Force; \
+    $top = Get-ChildItem -LiteralPath $t | Select-Object -First 1; \
+    if (-not $top) { exit 1 }; \
+    $found = Get-ChildItem -LiteralPath $top.FullName -Filter $env:BD_UPDATE_EXE -File | Select-Object -First 1; \
+    if (-not $found) { exit 1 }; \
+    $s = Get-AuthenticodeSignature -FilePath $found.FullName; \
+    if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Subject -notlike '*BD Tecnologia*') { exit 1 }; \
+    Copy-Item -LiteralPath (Join-Path $top.FullName '*') -Destination $d -Recurse -Force; \
+    Remove-Item -LiteralPath $t -Recurse -Force -ErrorAction SilentlyContinue; \
+    Remove-Item -LiteralPath $z -ErrorAction SilentlyContinue";
+
+/// Checks the portable self-update's paths and executable name before scheduling it.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn portable_update_step(zip: &Path, tmp: &Path, dir: &Path, exe_name: &str) -> Result<(), String> {
+    for path in [zip, tmp, dir] {
+        check_ps_path(path)?;
+        if !path.is_absolute() {
+            return Err("unusual characters in a path".into());
+        }
+    }
+    if exe_name.is_empty()
+        || exe_name.len() > 64
+        || exe_name.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':' | '\'' | '"'))
+        || !exe_name.to_ascii_lowercase().ends_with(".exe")
+    {
+        return Err("unusual characters in a path".into());
+    }
+    Ok(())
 }
 
 /// A PowerShell single-quoted literal.
@@ -415,6 +490,7 @@ fn ps_quote_arg(path: &Path) -> String {
 #[cfg_attr(not(windows), allow(dead_code))]
 fn msi_update_step(file: &Path) -> Result<String, String> {
     let file = install::msi_path(file)?;
+    check_ps_path(&file)?;
     Ok(format!(
         "Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\\msiexec.exe') -ArgumentList '/i',{},'/passive','/norestart' -Wait; Remove-Item -LiteralPath {} -ErrorAction SilentlyContinue",
         ps_quote_arg(&file),
@@ -558,6 +634,24 @@ mod tests {
         let p = Path::new(r"C:\Users\O'Brien\AppData\Local\BD Launcher\x.msi");
         assert_eq!(ps_quote(p), r"'C:\Users\O''Brien\AppData\Local\BD Launcher\x.msi'");
         assert_eq!(ps_quote_arg(p), r#"'"C:\Users\O''Brien\AppData\Local\BD Launcher\x.msi"'"#);
+    }
+
+    #[test]
+    fn the_portable_update_checks_the_new_executable_signature() {
+        assert!(PORTABLE_UPDATE_SCRIPT.contains("Get-AuthenticodeSignature"), "{PORTABLE_UPDATE_SCRIPT}");
+        assert!(PORTABLE_UPDATE_SCRIPT.contains("BD Tecnologia"), "{PORTABLE_UPDATE_SCRIPT}");
+        for env in ["BD_UPDATE_ZIP", "BD_UPDATE_TMP", "BD_UPDATE_DIR", "BD_UPDATE_EXE"] {
+            assert!(PORTABLE_UPDATE_SCRIPT.contains(&format!("$env:{env}")), "{PORTABLE_UPDATE_SCRIPT}");
+        }
+        assert!(!PORTABLE_UPDATE_SCRIPT.contains("Expand-Archive -Path"), "the zip path must stay a literal path");
+        let dir = tempfile::tempdir().unwrap();
+        let zip = dir.path().join("update.zip");
+        let tmp = dir.path().join("tmp");
+        let target = dir.path().join("App");
+        assert!(portable_update_step(&zip, &tmp, &target, "bd-launcher.exe").is_ok());
+        assert!(portable_update_step(&zip, &tmp, &target, "../evil.exe").is_err());
+        assert!(portable_update_step(&zip, &tmp, &target, "bd-launcher.exe\nRemove-Item C:\\").is_err());
+        assert!(portable_update_step(Path::new("relative.zip"), &tmp, &target, "bd-launcher.exe").is_err());
     }
 
     #[test]

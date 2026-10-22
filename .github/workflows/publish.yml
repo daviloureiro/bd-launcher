@@ -36,20 +36,20 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           path: app
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: ${{ env.LAUNCHER_REPO }}
           path: launcher
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
 
@@ -63,7 +63,7 @@ jobs:
 
       - name: Get a database token
         id: auth
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
@@ -74,9 +74,11 @@ jobs:
 
       - name: Publish
         working-directory: app
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          if [ "${{ inputs.version }}" != "" ]; then VERSION="${{ inputs.version }}"; fi
+          if [ "$INPUT_VERSION" != "" ]; then VERSION="$INPUT_VERSION"; fi
           cargo run --quiet --manifest-path launcher/Cargo.toml -p xtask -- publish \
             --app "$APP_ID" \
             --version "$VERSION" \

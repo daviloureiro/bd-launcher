@@ -7,6 +7,8 @@ AddType text/javascript .js
 </IfModule>
 
 <IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://raw.githubusercontent.com; connect-src 'self' https://api.github.com https://raw.githubusercontent.com; font-src 'self'; object-src 'none'; base-uri 'self'"
   <FilesMatch "\.(wasm|js)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
