@@ -19,5 +19,6 @@ concurrency:
 
 jobs:
   lint:
-    # Intentionally tracked at @main (not SHA-pinned) so org-wide CI improvements, security fixes, and build optimizations propagate without PR churn across all craftapp repos.
-    uses: bd-tecnologia/craft-common-actions/.github/workflows/packaging-lint.yml@main
+    # The shared workflows live in the upstream organisation. Point them at your own copy when
+# you have one; they are tracked at @main (not SHA-pinned) so fixes reach every app.
+    uses: storytold/craft-common-actions/.github/workflows/packaging-lint.yml@main
