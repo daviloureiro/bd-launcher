@@ -161,6 +161,15 @@ nothing.
 Every copy of BD Launcher shows the new version on its next check. There is no release to cut
 and no binary to ship.
 
+### When the files are already in the bucket
+
+`--no-upload` writes only the catalog: use it when the files were uploaded by other means (a
+CI step that runs `gcloud storage rsync`, a build that pushes to the bucket itself).
+
+The database's address is `https://<project>.firebaseio.com`. Set
+`BD_LAUNCHER_FIREBASE_DATABASE_URL` to point somewhere else — the Firebase emulator, a staging
+database — when you want to try a change without touching the real one.
+
 ### The app's own fields
 
 The command **merges**: the name, the colour, the icon and the page an app already has in the

@@ -205,12 +205,13 @@ impl NativeBackend {
             };
             let storage = catalog.storage.clone();
             *shared.catalog.lock().unwrap_or_else(PoisonError::into_inner) = catalog.clone();
-            // The list may name apps the machine has: look again now that it is known.
+            // The list comes first: what is found on the machine is about the apps in it, and
+            // the UI builds its cards from the list before it hears about them.
+            shared.emit(Event::Catalog(catalog.clone()));
             if !shared.detecting.swap(true, Ordering::SeqCst) {
                 detect_apps(&shared, &paths, platform, &options, &catalog.apps);
                 shared.detecting.store(false, Ordering::SeqCst);
             }
-            shared.emit(Event::Catalog(catalog.clone()));
             shared.emit(Event::Notices { announcements: catalog.announcements.clone(), alerts: catalog.alerts.clone() });
             // The launcher's own update, when the catalog carries one.
             if let Some(release) = catalog.launcher_release()
@@ -1132,6 +1133,42 @@ mod tests {
         backend.shared.latest.lock().unwrap().insert(APP.to_string(), release("0.6.0"));
         backend.send(Command::Configure(BackendOptions::default()));
         assert_eq!(last_ready(backend.poll()), Some(false));
+    }
+
+    #[test]
+    fn the_list_comes_before_what_is_found_on_the_machine() {
+        // The UI builds its cards from the catalog and fills them in with what is on the
+        // machine. When the two arrive the other way round, the cards sit on 'checking' until
+        // the next detection pass.
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::under(dir.path());
+        let catalog = catalog();
+        std::fs::create_dir_all(&paths.cache).unwrap();
+        std::fs::write(crate::catalog_store::catalog_path(&paths.cache), serde_json::to_vec(&catalog).unwrap()).unwrap();
+        let shared = shared();
+        let shared = Arc::new(shared);
+        let backend = NativeBackend {
+            shared: shared.clone(),
+            paths,
+            http: None,
+            source: None,
+            catalog: CatalogStore::new(None, crate::catalog_store::catalog_path(&Paths::under(dir.path()).cache)),
+            platform: native_platform(),
+        };
+        backend.check(true);
+        let mut events = Vec::new();
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while !events.iter().any(|e| matches!(e, Event::CheckFinished { .. })) {
+            assert!(Instant::now() < deadline, "the check never finished");
+            std::thread::sleep(Duration::from_millis(10));
+            events.extend(shared.events.lock().unwrap_or_else(PoisonError::into_inner).iter().cloned());
+            shared.events.lock().unwrap_or_else(PoisonError::into_inner).clear();
+        }
+        let list = events.iter().position(|e| matches!(e, Event::Catalog(_)));
+        let found = events.iter().position(|e| matches!(e, Event::Detected { .. }));
+        assert!(list.is_some(), "the catalog was announced");
+        assert!(found.is_some(), "the apps were looked for");
+        assert!(list < found, "the list comes first: {events:?}");
     }
 
     #[test]

@@ -35,11 +35,16 @@ usage: cargo xtask publish --app <id> --version <x.y.z> --dir <folder> [options]
   --color <hex>     the app's colour, as #1876ff (only needed the first time)
   --app-file <file> a JSON file with the app's metadata (the same fields as the catalog)
   --social <list>   BD's social accounts, as Name=address,Name=address
+  --no-upload       the files are already in the bucket; only the catalog is written
   --launcher        publish BD Launcher's own release, not an app's
   --project <id>    the Firebase project (default: bd-tecnologia)
   --bucket <name>   the storage bucket (default: bd-tecnologia.firebasestorage.app)
   --token <token>   a Realtime Database token (or set BD_LAUNCHER_FIREBASE_TOKEN)
   --dry-run         print what would be done and stop
+
+The database's address is https://<project>.firebaseio.com. Set
+BD_LAUNCHER_FIREBASE_DATABASE_URL to point somewhere else (the emulator, a
+staging database).
 
 The files are uploaded to apps/<id>/<version>/ in the bucket, and the app's entry is
 written to the Realtime Database at catalog/apps/<id>.
@@ -57,6 +62,7 @@ struct Options {
     color: Option<String>,
     app_file: Option<PathBuf>,
     social: Vec<(String, String)>,
+    no_upload: bool,
     launcher: bool,
     project: String,
     bucket: String,
@@ -95,11 +101,13 @@ pub fn run(args: &[&str]) -> Result<(), String> {
     }
 
     // 1. The files, in the bucket.
-    upload(&options, &options.dir, &prefix)?;
+    if !options.no_upload {
+        upload(&options, &options.dir, &prefix)?;
 
-    // 2. The icon, in the bucket.
-    if let Some(icon) = &options.icon {
-        upload(&options, icon, &format!("icons/{id}.png"))?;
+        // 2. The icon, in the bucket.
+        if let Some(icon) = &options.icon {
+            upload(&options, icon, &format!("icons/{id}.png"))?;
+        }
     }
 
     // 3. The catalog entry, in the Realtime Database.
@@ -129,6 +137,7 @@ fn parse(args: &[&str]) -> Result<Options, String> {
     let mut color = None;
     let mut app_file = None;
     let mut social = Vec::new();
+    let mut no_upload = false;
     let mut launcher = false;
     let mut project = DEFAULT_PROJECT.to_string();
     let mut bucket = DEFAULT_BUCKET.to_string();
@@ -150,6 +159,7 @@ fn parse(args: &[&str]) -> Result<Options, String> {
             "--color" => color = Some(value()?),
             "--app-file" => app_file = Some(PathBuf::from(value()?)),
             "--social" => social = parse_social(&value()?)?,
+            "--no-upload" => no_upload = true,
             "--launcher" => launcher = true,
             "--project" => project = value()?,
             "--bucket" => bucket = value()?,
@@ -181,6 +191,7 @@ fn parse(args: &[&str]) -> Result<Options, String> {
             color,
             app_file,
             social,
+            no_upload,
             launcher,
             project,
             bucket,
@@ -188,7 +199,7 @@ fn parse(args: &[&str]) -> Result<Options, String> {
             dry_run,
         });
     }
-    Ok(Options { app: None, version, dir, icon, notes, name, tagline, color, app_file, social, launcher, project, bucket, token, dry_run })
+    Ok(Options { app: None, version, dir, icon, notes, name, tagline, color, app_file, social, no_upload, launcher, project, bucket, token, dry_run })
 }
 
 /// BD's social accounts, as `Name=address,Name=address`.
@@ -270,6 +281,10 @@ fn entry(options: &Options, files: &[File]) -> String {
     }
     if let Some(color) = &options.color {
         set_field(&mut app, "color", &json_string(color));
+    }
+    if options.icon.is_some() && !app.contains("\"icon\":") {
+        // The icon was uploaded to this address: the card has to know where to look for it.
+        set_field(&mut app, "icon", &json_string(&format!("icons/{id}.png")));
     }
     if let Some(file) = &options.app_file
         && let Ok(text) = std::fs::read_to_string(file)
@@ -466,11 +481,22 @@ fn set_field(object: &mut String, key: &str, value: &str) {
     }
     let Some(at) = at else {
         // Not there yet: add it.
-        let trimmed = object.trim_end();
-        let body = trimmed.strip_suffix('}').unwrap_or(trimmed);
-        let inner = body.trim_start().strip_prefix('{').unwrap_or(body).trim();
-        let comma = if inner.is_empty() { "" } else { "," };
-        *object = format!("{body}{comma}{}{value}}}", needle.iter().collect::<String>());
+        let needle: String = needle.iter().collect();
+        let trimmed = object.trim();
+        if let Some(without) = trimmed.strip_prefix('{')
+            && let Some(without) = without.strip_suffix('}')
+        {
+            // An object that is already there: the field goes in it.
+            let comma = if without.trim().is_empty() { "" } else { "," };
+            *object = format!("{{{without}{comma}{needle}{value}}}");
+        } else if let Some(without) = trimmed.strip_prefix('{') {
+            // An object that was never closed: close it and add the field.
+            let comma = if without.trim().is_empty() { "" } else { "," };
+            *object = format!("{{{without}{comma}{needle}{value}}}");
+        } else {
+            // Nothing there yet: the field is the whole object.
+            *object = format!("{{{needle}{value}}}");
+        }
         return;
     };
     // Where the field's value ends.
@@ -544,9 +570,17 @@ fn run_firebase(source: &Path, destination: &str, args: &[&str]) -> bool {
     }
 }
 
+/// The database's address.
+fn database_url(options: &Options) -> String {
+    match std::env::var("BD_LAUNCHER_FIREBASE_DATABASE_URL") {
+        Ok(url) if !url.trim().is_empty() => url.trim().trim_end_matches('/').to_string(),
+        _ => format!("https://{}.firebaseio.com", options.project),
+    }
+}
+
 /// The app's entry in the catalog, as it is now.
 fn read_catalog(options: &Options, id: &str, token: &str) -> Option<String> {
-    let url = format!("https://{}.firebaseio.com/catalog/apps/{}.json?auth={}", options.project, id, token);
+    let url = format!("{}/catalog/apps/{id}.json?auth={token}", database_url(options));
     let output = Command::new("curl").args(["-sS", url.as_str()]).output().ok()?;
     if !output.status.success() {
         return None;
@@ -574,7 +608,7 @@ fn write_catalog(options: &Options, path: &str, entry: &str) -> Result<(), Strin
         }
         return Ok(());
     };
-    let url = format!("https://{}.firebaseio.com/{path}.json?auth={}", options.project, token);
+    let url = format!("{}/{path}.json?auth={token}", database_url(options));
     eprintln!("writing {path}");
     let output = Command::new("curl")
         .args(["-sS", "-X", "PUT", "-H", "Content-Type: application/json", "-d", entry, &url])
@@ -611,12 +645,22 @@ mod tests {
             color: None,
             app_file: None,
             social: Vec::new(),
+            no_upload: false,
             launcher: false,
             project: "p".into(),
             bucket: "b".into(),
             token: None,
             dry_run: true,
         }
+    }
+
+    #[test]
+    fn a_field_is_added_to_an_object_that_is_not_there_yet() {
+        let mut object = String::new();
+        set_field(&mut object, "id", "\"meuapp\"");
+        assert_eq!(object, "{\"id\":\"meuapp\"}");
+        set_field(&mut object, "name", "\"Meu App\"");
+        assert_eq!(object, "{\"id\":\"meuapp\",\"name\":\"Meu App\"}");
     }
 
     #[test]
@@ -641,6 +685,15 @@ mod tests {
         assert_eq!(fields.len(), 2);
         assert_eq!(fields[0].0, "name");
         assert_eq!(fields[0].1, "\"Meu App\"");
+    }
+
+    #[test]
+    fn the_icon_is_registered_when_one_is_published() {
+        let mut opts = options();
+        opts.icon = Some(PathBuf::from("icon.png"));
+        let files = vec![File { name: "meuapp-1.2.0-windows-x64.msi".into(), size: 7, sha256: "ab".repeat(32) }];
+        let text = entry(&opts, &files);
+        assert!(text.contains("\"icon\":\"icons/meuapp.png\""), "{text}");
     }
 
     #[test]
