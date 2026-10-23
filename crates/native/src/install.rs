@@ -1149,15 +1149,17 @@ pub mod macos {
         Ok(user)
     }
 
-    /// The Apple Developer team that signs every Craft App and BD Launcher (Learning
-    /// Machines LLC): the macOS side of the Windows publisher check.
-    pub const TEAM_ID: &str = "DJ6XS33FX8";
+    /// The Apple Developer team whose Developer ID signature new copies must carry.
+    /// `None` until BD has its own Developer ID (see `docs/PENDING.md`): while it is
+    /// `None`, bundles are accepted without a signature check (the version check still
+    /// applies). Set it to `Some(...)` when the team arrives; `check` below enforces it.
+    pub const TEAM_ID: Option<&str> = None;
 
     /// What a new copy must prove before it replaces anything. The checksum shows the download is
     /// the file the release lists; these show the app inside is the one the release promises.
     pub struct Expect<'a> {
-        /// The team whose Developer ID signature the bundle must carry. `None` only in tests,
-        /// which build unsigned bundles.
+        /// The team whose Developer ID signature the bundle must carry. `None` while BD has
+        /// no Developer ID (and in tests, which build unsigned bundles).
         pub team: Option<&'a str>,
         /// The release's version, which the bundle must report. `None` when the tag isn't one.
         pub version: Option<&'a Version>,
@@ -1165,7 +1167,7 @@ pub mod macos {
 
     impl<'a> Expect<'a> {
         pub fn release(release: &'a Release) -> Self {
-            Self { team: Some(TEAM_ID), version: release.version.as_ref() }
+            Self { team: TEAM_ID, version: release.version.as_ref() }
         }
     }
 
@@ -1662,25 +1664,30 @@ pub(crate) fn msi_path(msi: &Path) -> Result<PathBuf, String> {
     resolved.map_err(|e| format!("couldn't resolve the Windows Installer package {} ({e})", msi.display()))
 }
 
-/// The publisher every Windows payload must be signed by: Learning Machines Inc, the
-/// identity that signs every Craft App and BD Launcher (the macOS side pins the same
-/// organisation's team id, `macos::TEAM_ID`). The CN and O are matched exactly: a substring
-/// check would also trust `CN=Evil Learning Machines Inc`.
+/// The publisher Windows payloads must be signed by — `None` until BD has its own code
+/// signing certificate (see `docs/PENDING.md`): with no pinned identity there is nothing
+/// to check the signature against. While it is `None`, any valid signature passes; set it
+/// to `Some(...)` together with `WINDOWS_SIGNING_CA_PREFIX` when the certificate arrives.
 #[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) const WINDOWS_PUBLISHER_CN: &str = "Learning Machines Inc";
+pub(crate) const WINDOWS_PUBLISHER_CN: Option<&str> = None;
 
-/// The certification authority the publisher signs through: Microsoft's Trusted Signing,
-/// which issues short-lived certificates (a few days each). A leaf thumbprint rotates with
-/// every signing run, so it is required to be well-formed but never pinned to one value;
-/// the stable identity is the subject above, under a Trusted Signing CA.
+/// The certification authority the publisher signs through — same pending state as the
+/// publisher above. Set both together; the leaf thumbprint is never pinned (CAs rotate it).
 #[cfg_attr(not(windows), allow(dead_code))]
-pub(crate) const WINDOWS_SIGNING_CA_PREFIX: &str = "CN=Microsoft ID Verified CS ";
+pub(crate) const WINDOWS_SIGNING_CA_PREFIX: Option<&str> = None;
 
-/// Whether PowerShell's signature report says the file carries a valid signature from the
-/// publisher, through the expected CA. The report is `Status|Subject|Thumbprint|Issuer`,
-/// one line.
+/// Whether PowerShell's signature report says the file carries a valid signature: from the
+/// pinned publisher under the pinned CA when those are set, any valid signature while they
+/// are not. The report is `Status|Subject|Thumbprint|Issuer`, one line.
 #[cfg_attr(not(windows), allow(dead_code))]
 fn signature_trusted(report: &str) -> bool {
+    signature_trusted_as(report, WINDOWS_PUBLISHER_CN, WINDOWS_SIGNING_CA_PREFIX)
+}
+
+/// [`signature_trusted`] with explicit pins, so the pinning path stays tested while the
+/// compiled-in pins are pending.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn signature_trusted_as(report: &str, publisher: Option<&str>, ca_prefix: Option<&str>) -> bool {
     let mut fields = report.trim().split('|');
     let (Some(status), Some(subject), Some(thumbprint), Some(issuer), None) =
         (fields.next(), fields.next(), fields.next(), fields.next(), fields.next())
@@ -1690,18 +1697,22 @@ fn signature_trusted(report: &str) -> bool {
     if status.trim() != "Valid" {
         return false;
     }
-    if dn_value(subject, "CN").as_deref() != Some(WINDOWS_PUBLISHER_CN) {
-        return false;
+    if let Some(publisher) = publisher {
+        if dn_value(subject, "CN").as_deref() != Some(publisher) {
+            return false;
+        }
+        if dn_value(subject, "O").as_deref() != Some(publisher) {
+            return false;
+        }
     }
-    if dn_value(subject, "O").as_deref() != Some(WINDOWS_PUBLISHER_CN) {
-        return false;
-    }
-    if !issuer.starts_with(WINDOWS_SIGNING_CA_PREFIX) {
+    if let Some(ca_prefix) = ca_prefix
+        && !issuer.starts_with(ca_prefix)
+    {
         return false;
     }
     let thumbprint: String = thumbprint.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-    // A real signature always carries a SHA-1 thumbprint. It is not pinned to one value:
-    // the signing CA rotates it every few days.
+    // A real signature always carries a SHA-1 thumbprint. It is required to be
+    // well-formed, never pinned to one value: signing CAs rotate it every few days.
     thumbprint.len() == 40
 }
 
@@ -1743,7 +1754,7 @@ pub mod windows {
         cmd.env(VAR, text);
         let out = crate::process::run_command(cmd, "powershell.exe", std::time::Duration::from_secs(60))
             .map_err(|e| format!("couldn't check the download's signature ({e})"))?;
-        if signature_trusted(&out) { Ok(()) } else { Err("the download isn't signed by Learning Machines Inc; refusing to run it".into()) }
+        if signature_trusted(&out) { Ok(()) } else { Err("the download doesn't carry a valid signature; refusing to run it".into()) }
     }
 
     fn explain(code: Option<i32>) -> Result<(), String> {
@@ -1833,26 +1844,28 @@ mod tests {
 
     #[test]
     fn only_the_publishers_valid_signature_is_trusted() {
+        // No pins compiled in yet: any valid signature passes (see docs/PENDING.md).
+        assert!(WINDOWS_PUBLISHER_CN.is_none() && WINDOWS_SIGNING_CA_PREFIX.is_none());
+        let other_ca = "CN=Some Other CA, O=Other, C=US";
+        let other_subject = "CN=Someone Else, O=Evil";
+        let thumb = "54A063654E51CD00D5620C36616F9A6AA30EDD15";
+        assert!(signature_trusted(&format!("Valid|{other_subject}|{thumb}|{other_ca}")));
+        assert!(!signature_trusted("NotSigned|CN=x|54A063654E51CD00D5620C36616F9A6AA30EDD15|CN=y"));
+        assert!(!signature_trusted("Valid"));
+        assert!(!signature_trusted(""));
+        // The pinning path itself stays tested, for when the pins return.
         let subject = "CN=Learning Machines Inc, O=Learning Machines Inc, L=Atlanta, S=Georgia, C=US";
         let ca_aoc = "CN=Microsoft ID Verified CS AOC CA 04, O=Microsoft Corporation, C=US";
         let ca_eoc = "CN=Microsoft ID Verified CS EOC CA 03, O=Microsoft Corporation, C=US";
-        // Both Trusted Signing certificates in the wild pass.
-        assert!(signature_trusted(&format!("Valid|{subject}|54A063654E51CD00D5620C36616F9A6AA30EDD15|{ca_aoc}")));
-        assert!(signature_trusted(&format!("Valid|{subject}|ACA9C7311C78A6812673319EB8D6BB6C2E736822|{ca_eoc}")));
-        // A lookalike publisher is not the publisher...
-        assert!(!signature_trusted(&format!("Valid|CN=Evil Learning Machines Inc, O=Evil|54A063654E51CD00D5620C36616F9A6AA30EDD15|{ca_aoc}")));
-        // ...and neither is the previously assumed one.
-        assert!(!signature_trusted(&format!("Valid|CN=BD Tecnologia, O=BD Tecnologia|54A063654E51CD00D5620C36616F9A6AA30EDD15|{ca_aoc}")));
-        // A valid signature from outside the Trusted Signing CA is refused.
-        assert!(!signature_trusted(&format!("Valid|{subject}|54A063654E51CD00D5620C36616F9A6AA30EDD15|CN=Some Other CA, O=Other, C=US")));
-        assert!(!signature_trusted(&format!("NotSigned|{subject}|54A063654E51CD00D5620C36616F9A6AA30EDD15|{ca_aoc}")));
-        // Malformed reports are refused: a short thumbprint, a missing field, a trailing
-        // field, and the old three-field shape.
-        assert!(!signature_trusted(&format!("Valid|{subject}|short|{ca_aoc}")));
-        assert!(!signature_trusted(&format!("Valid|{subject}|{ca_aoc}")));
-        assert!(!signature_trusted(&format!("Valid|{subject}|54A063654E51CD00D5620C36616F9A6AA30EDD15|{ca_aoc}|extra")));
-        assert!(!signature_trusted("Valid"));
-        assert!(!signature_trusted(""));
+        let pin = |report: &str| signature_trusted_as(report, Some("Learning Machines Inc"), Some("CN=Microsoft ID Verified CS "));
+        assert!(pin(&format!("Valid|{subject}|{thumb}|{ca_aoc}")));
+        assert!(pin(&format!("Valid|{subject}|ACA9C7311C78A6812673319EB8D6BB6C2E736822|{ca_eoc}")));
+        assert!(!pin(&format!("Valid|CN=Evil Learning Machines Inc, O=Evil|{thumb}|{ca_aoc}")));
+        assert!(!pin(&format!("Valid|CN=BD Tecnologia, O=BD Tecnologia|{thumb}|{ca_aoc}")));
+        assert!(!pin(&format!("Valid|{subject}|{thumb}|{other_ca}")));
+        assert!(!pin(&format!("NotSigned|{subject}|{thumb}|{ca_aoc}")));
+        assert!(!pin(&format!("Valid|{subject}|short|{ca_aoc}")));
+        assert!(!pin(&format!("Valid|{subject}|{thumb}|{ca_aoc}|extra")));
     }
 
     #[cfg(windows)]
@@ -2653,7 +2666,7 @@ mod tests {
     mod macos_checks {
         use bd_launcher_core::version;
 
-        use super::macos::{Expect, TEAM_ID, install_dmg, signed_by};
+        use super::macos::{Expect, install_dmg, signed_by};
         use super::*;
 
         fn photocraft() -> &'static App {
@@ -2771,14 +2784,16 @@ mod tests {
 
         #[test]
         fn only_the_teams_signature_passes() {
+            // No team compiled in yet (see docs/PENDING.md): the pinning path is
+            // exercised with an explicit team here, as production will use it.
             let dir = tempfile::tempdir().unwrap();
             let app = bundle(dir.path(), "0.6.0");
-            assert!(!signed_by(&app, TEAM_ID), "an unsigned bundle passed");
+            assert!(!signed_by(&app, "AAAAAAAAAA"), "an unsigned bundle passed");
 
             // A valid signature, but not from the team.
             let ok = std::process::Command::new("codesign").args(["--force", "--sign", "-"]).arg(&app).status().unwrap().success();
             assert!(ok, "codesign failed");
-            assert!(!signed_by(&app, TEAM_ID), "an ad-hoc signature passed");
+            assert!(!signed_by(&app, "AAAAAAAAAA"), "an ad-hoc signature passed");
 
             // A team id can't smuggle anything into the requirement.
             assert!(!signed_by(&app, "X\" or anchor apple generic or \"Y"));
@@ -2826,8 +2841,10 @@ mod tests {
             let existing = Installed { version: None, source: InstallSource::MacApp, location: current.display().to_string(), package: None };
             let image = dmg(dir.path(), "0.6.0");
             let release = Release { tag: "v0.6.0".into(), version: version::parse("0.6.0"), ..Release::default() };
-
-            let result = install_dmg(photocraft(), &image, Some(&existing), None, false, &Paths::under(dir.path()), &Expect::release(&release));
+            // No team compiled in yet (see docs/PENDING.md): the enforcement itself is
+            // covered with an explicit team, as production will pass one.
+            let expect = Expect { team: Some("AAAAAAAAAA"), version: release.version.as_ref() };
+            let result = install_dmg(photocraft(), &image, Some(&existing), None, false, &Paths::under(dir.path()), &expect);
             assert_eq!(result, Err("the app isn't signed by its developer, so it wasn't installed".into()));
             assert_eq!(std::fs::read_to_string(current.join("Contents/MacOS/PhotoCraft")).unwrap(), "0.5.0");
             assert_eq!(
@@ -2836,13 +2853,15 @@ mod tests {
             );
         }
 
-        /// A real release passes. Run with `CRAFT_APP=/path/to/PhotoCraft.app cargo test -p
+        /// A real release passes once BD signs it (see docs/PENDING.md). Run with
+        /// `CRAFT_APP=/path/to/PhotoCraft.app TEAM_ID=XXXXXXXXXX cargo test -p
         /// bd-launcher-native -- --ignored a_real_craft_app`.
         #[test]
-        #[ignore = "needs a Craft App from a real release"]
+        #[ignore = "needs a Craft App from a real release and BD's team id"]
         fn a_real_craft_app_carries_the_teams_signature() {
             let app = std::env::var("CRAFT_APP").expect("set CRAFT_APP to a Craft App bundle");
-            assert!(signed_by(Path::new(&app), TEAM_ID), "{app} isn't signed by {TEAM_ID}");
+            let team = std::env::var("TEAM_ID").expect("set TEAM_ID to BD's Apple team id");
+            assert!(signed_by(Path::new(&app), &team), "{app} isn't signed by {team}");
         }
     }
 }
