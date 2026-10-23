@@ -24,23 +24,24 @@ confiar na identidade deles. Quando os certificados da BD chegarem:
   assinatura sozinhos. Teste real:
   `CRAFT_APP=/caminho/PhotoCraft.app TEAM_ID=... cargo test -p bd-launcher-native -- --ignored a_real_craft_app`.
 
-## 2. Firebase: sem plano pago, sem Storage
+## 2. Firebase: tudo no plano gratuito (sem billing)
 
 O banco (RTDB) já tem as regras (`firebase deploy --only database` feito) e funciona
 no plano gratuito. Para os arquivos, o desenho sem custo é:
 
-- **Catálogo**: RTDB (`catalog.json`) — só metadados, sem `release` embutido.
-- **Instaladores**: GitHub Releases de cada app + o fallback que o launcher já tem
-  (`GitHubSource`: API, e sem quota via `releases/latest` + `SHA256SUMS.txt`). Todo
-  download continua exigindo SHA-256 (`install::download` recusa sem checksum).
-- **Ícones/fotos**: `raw.githubusercontent.com` (permitido em
-  `catalog::storage_host_allowed`, com teste) — ficam nos repos dos apps, onde o web
-  já os lê.
-
-Se um dia quiser o bucket: console → projeto `bdesk-bdtecnologia` → **Storage →
-Get Started** (pode pedir billing), depois
-`firebase deploy --only storage --project bdesk-bdtecnologia`. Sem isso, nada do
-Storage funciona — o plano acima não precisa dele.
+- **RTDB**: 1 GB guardado + 10 GB/mês de download grátis. Regras já deployadas. ✓
+- **Storage**: 5 GB guardados + 1 GB/dia de download grátis no Spark — **sem pagar**.
+  O que travou foi só a criação do bucket (a API crua exige billing; o botão
+  **Get Started** no console cria dentro da cota gratuita). 1 clique seu, depois
+  eu rodo o deploy das regras daqui.
+- **Instaladores grandes**: se 1 GB/dia estourar, binários vão para GitHub Releases
+  de cada app + fallback nativo (`GitHubSource`, sem quota prática), sempre com
+  SHA-256 obrigatório.
+- **Ícones/fotos**: Storage ou `raw.githubusercontent.com` (permitido, com teste).
+- **SQL**: Firebase só tem SQL via Data Connect/Cloud SQL em **trial de 3 meses** —
+  depois vira Blaze automático. Sem plano pago permanente, e não precisamos:
+  catálogo é JSON (RTDB), arquivos são blobs. SQL = custo + complexidade + risco
+  de cobrança surprise.
 
 ## 3. GitHub: repositório próprio
 
