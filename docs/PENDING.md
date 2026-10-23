@@ -55,10 +55,8 @@ compartilhados vêm do fork próprio (`daviloureiro/craft-common-actions`). Falt
    `APPLE_*`, `WINDOWS_*`, `AZURE_*`) — não migram sozinhos.
 3. Repetir `FIREBASE_PROJECT`/`LAUNCHER_REPO` nas cópias de `publish.yml` dos repos
    de cada app, quando eles existirem.
-4. Definir o domínio canônico (hoje há três no código: `bdtecnolog.ia.br`,
-   `bdtecnologia.br`, `bdtecnologia.com.br`) e unificar `WEBSITE_URL`, os `url` do
-   metainfo (`homepage`, `contact` — ainda aponta para o Discord antigo) e o
-   developer id do AppStream (hoje `ai.storyteller`, da antiga dona).
+4. Domínio canônico: `bdtecnolog.ia.br` (resolvido). `WEBSITE_URL`, README e metainfo
+   (`homepage`, `contact` → WhatsApp, developer id `br.ia.bdtecnolog`) unificados nele.
 
 ## 4. Release: reapertar o cinto
 

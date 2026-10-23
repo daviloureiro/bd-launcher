@@ -7,7 +7,7 @@
   <project_license>MIT OR Apache-2.0</project_license>
   <name>BD Launcher</name>
   <summary>Install, update and launch the BD Apps</summary>
-  <developer id="ai.storyteller">
+  <developer id="br.ia.bdtecnolog">
     <name>BD Tecnologia</name>
   </developer>
   <description>
@@ -24,10 +24,10 @@
   <launchable type="desktop-id">com.bdtecnologia.bd-launcher.desktop</launchable>
   <icon type="stock">com.bdtecnologia.bd-launcher</icon>
   <!-- Only url types known to appstream 0.15 (Ubuntu 22.04, where CI validates): no vcs-browser. -->
-  <url type="homepage">https://bdtecnologia.com.br/apps</url>
+  <url type="homepage">https://bdtecnolog.ia.br/apps</url>
   <url type="bugtracker">https://github.com/daviloureiro/bd-launcher/issues</url>
   <url type="help">https://github.com/daviloureiro/bd-launcher</url>
-  <url type="contact">https://discord.gg/bd</url>
+  <url type="contact">https://wa.me/5511963080423</url>
   <categories>
     <category>Utility</category>
     <category>PackageManager</category>
