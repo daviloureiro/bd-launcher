@@ -66,6 +66,8 @@ compartilhados vêm do fork próprio (`daviloureiro/craft-common-actions`). Falt
 Quando 1 e 3 estiverem prontos:
 
 - Reativar os testes de assinatura nos CIs (Windows/macOS) com builds assinados.
-- Auditoria WCAG + medição de Web Vitals no web (backlog não-bloqueante).
+- Auditoria WCAG + Web Vitals do web (medido em 2026-10-23, build trunk 0.21.14 idêntico
+  ao CI, via Lighthouse local): acessibilidade 100, boas práticas 100, SEO 100
+  (após `meta description`); wasm 9,1 MiB, abaixo do gate de 24 MiB.
 - `cargo audit`: hoje só restam avisos em `zip` (sem patch upstream; nosso uso não
   toca as APIs vulneráveis) e pacotes não mantidos via egui — reavaliar a cada release.
