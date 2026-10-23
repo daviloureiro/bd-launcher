@@ -29,8 +29,8 @@ permissions:
 
 env:
   APP_ID: meuapp # TODO: the app's machine name
-  FIREBASE_PROJECT: bd-tecnologia
-  LAUNCHER_REPO: bd-tecnologia/bd-launcher
+  FIREBASE_PROJECT: bdesk-bdtecnologia
+  LAUNCHER_REPO: daviloureiro/bd-launcher
 
 jobs:
   publish:

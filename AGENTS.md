@@ -9,7 +9,7 @@ The product name is always **BD Launcher** in user-facing text: UI, window title
 tray menu, notifications, installers, release names, docs prose. The apps are the **BD Apps**.
 Machine names stay lowercase: crates and binaries (`bd-launcher`, `bd-launcher-*`), file names,
 and the app id `com.bdtecnologia.bd-launcher`. Note the GitHub repo is
-`bd-tecnologia/bd-launcher`, while every file and package is `bd-launcher-*`.
+`daviloureiro/bd-launcher`, while every file and package is `bd-launcher-*`.
 
 **There is no app list in the launcher.** The catalog, the icons, the pictures and the installers
 live in Firebase (see `docs/catalog.md`); the launcher reads one JSON document and downloads the
