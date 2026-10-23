@@ -202,10 +202,7 @@ impl WebBackend {
         let (events, ctx) = (self.events.clone(), self.ctx.clone());
         let id = app.to_string();
         wasm_bindgen_futures::spawn_local(async move {
-            let result = match icon_bytes(&url).await {
-                Ok(bytes) => Ok(bytes),
-                Err(why) => Err(why),
-            };
+            let result = icon_bytes(&url).await;
             events.borrow_mut().push(Event::Icon { app: id, result });
             ctx.request_repaint();
         });
