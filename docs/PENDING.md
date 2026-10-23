@@ -54,7 +54,9 @@ compartilhados vêm do fork próprio (`daviloureiro/craft-common-actions`). Falt
 2. Registrar os secrets no repo (`FIREBASE_TOKEN`, `FIREBASE_SERVICE_ACCOUNT`,
    `APPLE_*`, `WINDOWS_*`, `AZURE_*`) — não migram sozinhos.
 3. Repetir `FIREBASE_PROJECT`/`LAUNCHER_REPO` nas cópias de `publish.yml` dos repos
-   de cada app, quando eles existirem.
+   de cada app, quando eles existirem — e trocar o prefixo `bd-tecnologia/` pelos
+   repos reais em `README.md` (tabela dos apps), `ATTRIBUTION.md`, `GITHUB_URL`
+   (`catalog.rs`) e nas fixtures que usam a org como exemplo.
 4. Domínio canônico: `bdtecnolog.ia.br` (resolvido). `WEBSITE_URL`, README e metainfo
    (`homepage`, `contact` → WhatsApp, developer id `br.ia.bdtecnolog`) unificados nele.
 
