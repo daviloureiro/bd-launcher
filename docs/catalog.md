@@ -29,7 +29,10 @@ its next check.
 | The installers | Storage, `apps/<id>/<version>/` | `cargo xtask publish` |
 
 The addresses are compiled in (`catalog::CATALOG_URL`, `catalog::STORAGE_BUCKET`). The
-storage side can point at another bucket on the storage service with `BD_LAUNCHER_STORAGE`;
+storage side can point at another bucket on the storage service with `BD_LAUNCHER_STORAGE`,
+or at the apps' own GitHub repositories (`https://raw.githubusercontent.com/<org>/<app>/…`)
+— the free-tier path that needs no Storage bucket, since icons and pictures already live
+beside the code. The catalog side only trusts this project's own database
 the catalog side only trusts this project's own database (`catalog::CATALOG_HOST`) — a
 `BD_LAUNCHER_CATALOG_URL` naming any other host is ignored, so nothing that can set the
 environment can steer a release build at another catalog.

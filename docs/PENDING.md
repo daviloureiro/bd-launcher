@@ -24,15 +24,23 @@ confiar na identidade deles. Quando os certificados da BD chegarem:
   assinatura sozinhos. Teste real:
   `CRAFT_APP=/caminho/PhotoCraft.app TEAM_ID=... cargo test -p bd-launcher-native -- --ignored a_real_craft_app`.
 
-## 2. Firebase: Storage do projeto novo
+## 2. Firebase: sem plano pago, sem Storage
 
-O banco já tem as regras (`firebase deploy --only database` feito). Falta:
+O banco (RTDB) já tem as regras (`firebase deploy --only database` feito) e funciona
+no plano gratuito. Para os arquivos, o desenho sem custo é:
 
-1. No console, abrir o projeto `bdesk-bdtecnologia` → **Storage → Get Started**
-   (cria o bucket; pede billing/faturamento se o projeto ainda não tiver).
-2. Depois, neste repo: `firebase deploy --only storage --project bdesk-bdtecnologia`.
-3. Publicar de verdade: `cargo xtask publish --launcher --version <v> --dir dist/<v>`
-   (o `--dry-run` já mostra os defaults novos).
+- **Catálogo**: RTDB (`catalog.json`) — só metadados, sem `release` embutido.
+- **Instaladores**: GitHub Releases de cada app + o fallback que o launcher já tem
+  (`GitHubSource`: API, e sem quota via `releases/latest` + `SHA256SUMS.txt`). Todo
+  download continua exigindo SHA-256 (`install::download` recusa sem checksum).
+- **Ícones/fotos**: `raw.githubusercontent.com` (permitido em
+  `catalog::storage_host_allowed`, com teste) — ficam nos repos dos apps, onde o web
+  já os lê.
+
+Se um dia quiser o bucket: console → projeto `bdesk-bdtecnologia` → **Storage →
+Get Started** (pode pedir billing), depois
+`firebase deploy --only storage --project bdesk-bdtecnologia`. Sem isso, nada do
+Storage funciona — o plano acima não precisa dele.
 
 ## 3. GitHub: repositório próprio
 

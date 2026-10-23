@@ -742,9 +742,11 @@ fn color(value: Option<&Value>) -> Option<[u8; 3]> {
     Some(out)
 }
 
-/// Whether downloads may be taken from the host of `url`: the storage service (or the
-/// developer's own machine in a `local-mirror` build). The catalog names the host; without
-/// this, any `https` host on the internet would do.
+/// Whether downloads may be taken from the host of `url`: the storage service, the apps'
+/// own GitHub repositories (icons and pictures live beside the code, and the web app
+/// already loads them from there), or the developer's own machine in a `local-mirror`
+/// build. The catalog names the host; without this, any `https` host on the internet
+/// would do.
 pub fn storage_host_allowed(url: &str) -> bool {
     let Some(rest) = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://")) else { return false };
     let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
@@ -752,7 +754,11 @@ pub fn storage_host_allowed(url: &str) -> bool {
     if host.is_empty() {
         return false;
     }
-    if host == "storage.googleapis.com" || host.ends_with(".googleapis.com") || host.ends_with(".firebasestorage.app") {
+    if host == "storage.googleapis.com"
+        || host.ends_with(".googleapis.com")
+        || host.ends_with(".firebasestorage.app")
+        || host == "raw.githubusercontent.com"
+    {
         return true;
     }
     cfg!(feature = "local-mirror") && matches!(host, "127.0.0.1" | "localhost" | "[::1]")
@@ -900,6 +906,18 @@ mod tests {
         } else {
             assert!(release.is_none(), "a plain http address is not trusted outside a local-mirror build");
         }
+    }
+
+    #[test]
+    fn icons_may_live_beside_the_code_on_github() {
+        // The free-tier path that needs no Storage bucket: icons and pictures stay in the
+        // apps' own repositories, where the web app already loads them from.
+        assert!(storage_host_allowed(
+            "https://raw.githubusercontent.com/bd-tecnologia/photocraft/main/assets/app-icon/hicolor/128x128/apps/com.bdtecnologia.photocraft.png"
+        ));
+        assert!(!storage_host_allowed("https://evil.example/icons/x.png"));
+        assert!(!storage_host_allowed("https://raw.githubusercontent.com.evil.com/x.png"));
+        assert!(!storage_host_allowed("https://raw.githubusercontent.com@evil.com/x.png"));
     }
 
     #[test]
