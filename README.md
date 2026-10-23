@@ -30,7 +30,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/bd-tecnologia/bd-launcher/releases/latest"><b>Download BD Launcher</b></a> ·
+  <a href="https://github.com/daviloureiro/bd-launcher/releases/latest"><b>Download BD Launcher</b></a> ·
   <a href="https://bdtecnolog.ia.br/">BD</a> ·
   <a href="https://bdtecnolog.ia.br/apps">The BD Apps</a>
 </p>
@@ -147,7 +147,7 @@ portable zip's executable) and keeps the previous two runs as `bd-launcher.1.log
 
 ## Downloads
 
-Download the build for your computer from the [latest release](https://github.com/bd-tecnologia/bd-launcher/releases/latest), or browse [all releases](https://github.com/bd-tecnologia/bd-launcher/releases). Every release has a `SHA256SUMS.txt` to check the files against. `<ver>` is the version number, for example `0.1.0`.
+Download the build for your computer from the [latest release](https://github.com/daviloureiro/bd-launcher/releases/latest), or browse [all releases](https://github.com/daviloureiro/bd-launcher/releases). Every release has a `SHA256SUMS.txt` to check the files against. `<ver>` is the version number, for example `0.1.0`.
 
 **Windows** (10 and 11)
 
@@ -202,7 +202,7 @@ You need a recent stable Rust (1.90 or newer). On Linux, install the windowing h
 (Debian/Ubuntu: `sudo apt install libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev`).
 
 ```sh
-git clone https://github.com/bd-tecnologia/bd-launcher
+git clone https://github.com/daviloureiro/bd-launcher
 cd bd-launcher
 cargo run --release -p bd-launcher   # the desktop app
 cargo xtask ci                             # fmt, clippy, tests and the wasm check

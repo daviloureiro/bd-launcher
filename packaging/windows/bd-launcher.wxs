@@ -45,7 +45,7 @@
     <Icon Id="BDLauncherIcon.exe" SourceFile="$(var.IconPath)" />
     <Property Id="ARPPRODUCTICON" Value="BDLauncherIcon.exe" />
     <Property Id="ARPURLINFOABOUT" Value="https://bdtecnolog.ia.br/apps" />
-    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/bd-tecnologia/bd-launcher/releases" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/daviloureiro/bd-launcher/releases" />
     <Property Id="ARPHELPLINK" Value="https://bdtecnolog.ia.br" />
 
     <StandardDirectory Id="LocalAppDataFolder">

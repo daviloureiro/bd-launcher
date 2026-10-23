@@ -44,15 +44,21 @@ Storage funciona — o plano acima não precisa dele.
 
 ## 3. GitHub: repositório próprio
 
-O `origin` ainda aponta para o template (`storytold/craft-launcher`, sem escrita) e
-`bd-tecnologia/bd-launcher` não existe. Passos:
+O `origin` agora é o repo próprio (`daviloureiro/bd-launcher`) e os workflows
+compartilhados vêm do fork próprio (`daviloureiro/craft-common-actions`). Falta:
 
-1. Criar a org `bd-tecnologia` (ou escolher a conta) e o repo `bd-launcher`.
-2. `git remote set-url origin https://github.com/<org>/bd-launcher.git && git push -u origin main`.
-3. Registrar os secrets no repo novo (`FIREBASE_TOKEN`, `FIREBASE_SERVICE_ACCOUNT`,
+1. (Opcional) criar a org `bd-tecnologia` e transferir o repo para ela
+   (Settings → Transfer ownership); aí trocar `daviloureiro/` por
+   `bd-tecnologia/` em `Cargo.toml`, `publish.yml`, `README.md`, `AGENTS.md`,
+   `packaging/` e nos `uses:` dos workflows.
+2. Registrar os secrets no repo (`FIREBASE_TOKEN`, `FIREBASE_SERVICE_ACCOUNT`,
    `APPLE_*`, `WINDOWS_*`, `AZURE_*`) — não migram sozinhos.
-4. Repetir `FIREBASE_PROJECT`/`LAUNCHER_REPO` nas cópias de `publish.yml` dos repos
-   de cada app.
+3. Repetir `FIREBASE_PROJECT`/`LAUNCHER_REPO` nas cópias de `publish.yml` dos repos
+   de cada app, quando eles existirem.
+4. Definir o domínio canônico (hoje há três no código: `bdtecnolog.ia.br`,
+   `bdtecnologia.br`, `bdtecnologia.com.br`) e unificar `WEBSITE_URL`, os `url` do
+   metainfo (`homepage`, `contact` — ainda aponta para o Discord antigo) e o
+   developer id do AppStream (hoje `ai.storyteller`, da antiga dona).
 
 ## 4. Release: reapertar o cinto
 

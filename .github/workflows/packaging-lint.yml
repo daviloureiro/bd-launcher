@@ -19,6 +19,6 @@ concurrency:
 
 jobs:
   lint:
-    # The shared workflows live in the upstream organisation. Point them at your own copy when
-# you have one; they are pinned, so update them deliberately.
+    # The shared workflows live in our own fork (daviloureiro/craft-common-actions);
+    # they are pinned, so update them deliberately.
     uses: daviloureiro/craft-common-actions/.github/workflows/packaging-lint.yml@2446e3bd4f08cb303a6b590be5ff5a0def2bf534 # main
