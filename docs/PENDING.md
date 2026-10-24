@@ -55,8 +55,13 @@ compartilhados vêm do fork próprio (`daviloureiro/craft-common-actions`). Falt
    (Settings → Transfer ownership); aí trocar `daviloureiro/` por
    `bd-tecnologia/` em `Cargo.toml`, `publish.yml`, `README.md`, `AGENTS.md`,
    `packaging/` e nos `uses:` dos workflows.
-2. Registrar os secrets no repo (`FIREBASE_TOKEN`, `FIREBASE_SERVICE_ACCOUNT`,
-   `APPLE_*`, `WINDOWS_*`, `AZURE_*`) — não migram sozinhos.
+2. Registrar os secrets no repo (Settings → Secrets and variables → Actions):
+   `FIREBASE_TOKEN` (sai de `firebase login:ci`), `FIREBASE_SERVICE_ACCOUNT`
+   (JSON da conta de serviço, Project settings → Service accounts),
+   `APPLE_*`, `WINDOWS_*`, `AZURE_*` (quando houver certificados). Nunca
+   commitar esses valores. O segredo legado do RTDB que circulou no chat não
+   serve para nada aqui (o publish usa OAuth) — revogue no console
+   (Project settings → Service accounts → Database secrets).
 3. Repetir `FIREBASE_PROJECT`/`LAUNCHER_REPO` nas cópias de `publish.yml` dos repos
    de cada app, quando eles existirem — e trocar o prefixo `bd-tecnologia/` pelos
    repos reais em `README.md` (tabela dos apps), `ATTRIBUTION.md`, `GITHUB_URL`
