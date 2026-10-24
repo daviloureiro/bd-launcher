@@ -928,7 +928,7 @@ fn links_open_the_right_pages() {
     assert_eq!(click_opens(&mut h, "WhatsApp").as_deref(), Some("https://wa.me/5511963080423"));
     // The footer's BD links and each card's own pages.
     let github = all_opened(&mut h, "GitHub");
-    assert!(github.contains(&"https://github.com/bd-tecnologia".to_string()), "{github:?}");
+    assert!(github.contains(&"https://github.com/daviloureiro".to_string()), "{github:?}");
     assert!(github.contains(&"https://github.com/bd-tecnologia/photocraft".to_string()), "{github:?}");
     let sites = all_opened(&mut h, "Website");
     assert!(sites.contains(&"https://bdtecnolog.ia.br".to_string()), "{sites:?}");
