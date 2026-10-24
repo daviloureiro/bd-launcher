@@ -90,9 +90,10 @@ The web version shows the same catalog in the browser, with the latest download 
 There is no list of apps inside the launcher. One JSON document in **Firebase** carries
 everything: which apps exist, what they are called, what colour they are, which icon they have,
 which version is the newest and where to download it. The icons, the pictures and the installers
-live in **Firebase Storage**. So publishing an app or shipping a new version is a write to
-Firebase, not a new launcher: every copy picks the change up on its next check, and keeps
-working from its last copy when Firebase can't be reached.
+live in the apps' **GitHub Releases** (and `raw.githubusercontent.com`), so no Storage bucket is
+needed. Publishing an app or shipping a new version is a write to Firebase, not a new launcher:
+every copy picks the change up on its next check, and keeps working from its last copy when
+Firebase can't be reached.
 
 See [`docs/catalog.md`](docs/catalog.md) for the document's shape, how the launcher checks for
 updates, and the Firebase rules to set.
@@ -288,12 +289,15 @@ shipping a new version is a write to that document.
 ### Publishing an app
 
 ```sh
-cargo xtask publish --app meuapp --version 1.2.0 --dir dist/1.2.0 --icon assets/icon.png
+cargo xtask publish --app meuapp --version 1.2.0 --dir dist/1.2.0 \
+    --icon assets/icon.png \
+    --base-url https://github.com/daviloureiro/meuapp/releases/download/v1.2.0
 ```
 
-One command: it hashes the files, uploads them to the storage bucket and writes the app's entry
-in the catalog. Every copy of the launcher shows the new version on its next check — there is no
-launcher to rebuild and no release to cut.
+One command: it hashes the files, records where they were published and writes the app's entry
+in the catalog. `--base-url` points at the GitHub release that already holds the files (and
+implies `--no-upload`), so no Storage bucket is involved. Every copy of the launcher shows the
+new version on its next check — there is no launcher to rebuild and no release to cut.
 
 The catalog's shape, the Firebase rules and a workflow that does the same from CI are in
 [`docs/catalog.md`](docs/catalog.md).

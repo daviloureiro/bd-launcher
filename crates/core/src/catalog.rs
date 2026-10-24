@@ -55,7 +55,7 @@ pub fn launcher() -> &'static App {
         ink_dark: BRAND_INK_DARK,
         icon: String::new(),
         website: WEBSITE_URL.to_string(),
-        github: "bd-tecnologia/bd-launcher".to_string(),
+        github: "daviloureiro/bd-launcher".to_string(),
         package_id: format!("{PACKAGE_PREFIX}.{LAUNCHER_ID}"),
         categories: "Utility;".to_string(),
         wm_class: String::new(),
@@ -72,7 +72,7 @@ pub const PACKAGE_PREFIX: &str = "com.bdtecnologia";
 /// BD's website.
 pub const WEBSITE_URL: &str = "https://bdtecnolog.ia.br";
 /// BD on GitHub: where the apps' source lives.
-pub const GITHUB_URL: &str = "https://github.com/bd-tecnologia";
+pub const GITHUB_URL: &str = "https://github.com/daviloureiro";
 
 /// BD's social accounts: (service, URL). Shown as small icons in the footer and in Settings,
 /// next to the website and the GitHub link.
@@ -744,9 +744,9 @@ fn color(value: Option<&Value>) -> Option<[u8; 3]> {
 
 /// Whether downloads may be taken from the host of `url`: the storage service, the apps'
 /// own GitHub repositories (icons and pictures live beside the code, and the web app
-/// already loads them from there), or the developer's own machine in a `local-mirror`
-/// build. The catalog names the host; without this, any `https` host on the internet
-/// would do.
+/// already loads them from there), GitHub release downloads (the free-tier publishing
+/// path), or the developer's own machine in a `local-mirror` build. The catalog names
+/// the host; without this, any `https` host on the internet would do.
 pub fn storage_host_allowed(url: &str) -> bool {
     let Some(rest) = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://")) else { return false };
     let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
@@ -759,6 +759,10 @@ pub fn storage_host_allowed(url: &str) -> bool {
         || host.ends_with(".firebasestorage.app")
         || host == "raw.githubusercontent.com"
     {
+        return true;
+    }
+    // Release assets only — versioned, immutable files — rather than all of github.com.
+    if host == "github.com" && rest.split(['?', '#']).next().unwrap_or_default().contains("/releases/download/") {
         return true;
     }
     cfg!(feature = "local-mirror") && matches!(host, "127.0.0.1" | "localhost" | "[::1]")
@@ -918,6 +922,16 @@ mod tests {
         assert!(!storage_host_allowed("https://evil.example/icons/x.png"));
         assert!(!storage_host_allowed("https://raw.githubusercontent.com.evil.com/x.png"));
         assert!(!storage_host_allowed("https://raw.githubusercontent.com@evil.com/x.png"));
+    }
+
+    #[test]
+    fn only_release_assets_may_come_from_github() {
+        // `cargo xtask publish --base-url` points the catalog at a GitHub release.
+        assert!(storage_host_allowed("https://github.com/daviloureiro/meuapp/releases/download/v1.2.0/meuapp-1.2.0-windows-x64.msi"));
+        // Anything else on github.com is refused: issues, lookalikes, userinfo tricks.
+        assert!(!storage_host_allowed("https://github.com/daviloureiro/meuapp/issues/1"));
+        assert!(!storage_host_allowed("https://github.com.evil.com/daviloureiro/meuapp/releases/download/v1/x.msi"));
+        assert!(!storage_host_allowed("https://github.com@evil.com/daviloureiro/meuapp/releases/download/v1/x.msi"));
     }
 
     #[test]

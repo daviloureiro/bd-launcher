@@ -24,60 +24,60 @@ confiar na identidade deles. Quando os certificados da BD chegarem:
   assinatura sozinhos. Teste real:
   `CRAFT_APP=/caminho/PhotoCraft.app TEAM_ID=... cargo test -p bd-launcher-native -- --ignored a_real_craft_app`.
 
-## 2. Firebase: sem Storage, sem SQL pago (decidido)
+## 2. Firebase: RTDB + GitHub Releases (sem Storage, sem SQL pago)
 
-Dois projetos, sem confusão:
+O catálogo é um JSON no **Realtime Database** (1 GB guardado + 10 GB/mês de
+download, grátis) e os arquivos ficam nos **GitHub Releases** de cada app. As
+regras já estão deployadas (`firebase deploy --only database`) e
+`/catalog.json` responde 200. Nada aqui usa Storage nem SQL:
 
-- **`bdtecnologia`** — RTDB do launcher (`catalog.json`). Regras deployadas. ✓
-- **`bdtecnologia`** — site institucional (`bdtecnolog.ia.br`, Hosting `bdtecnolog-ia-br`).
-  Nada do launcher depende dele.
-
-Arquitetura do launcher, toda gratuita:
-
-O banco (RTDB) já tem as regras (`firebase deploy --only database` feito) e funciona
-no plano gratuito. Arquitetura final, sem Storage e sem SQL:
-
-- **RTDB**: 1 GB guardado + 10 GB/mês de download grátis. Regras já deployadas. ✓
-- **Storage**: 5 GB + 1 GB/dia grátis no Spark. Opcional: só se um dia quiser o
-  bucket (console → Get Started, depois eu deployo as regras daqui). Nada no
-  código depende dele.
-- **Web (`bd-launcher-web`)**: o release gera o zip (`packaging/web/package.sh`),
-  mas não publica sozinho — destino a decidir (Firebase Hosting novo site no
-  projeto do launcher, GitHub Pages ou Cloudflare; ver `packaging/web/README.md`).
-- **Instaladores**: GitHub Releases de cada app + fallback nativo do launcher
-  (`GitHubSource`: API, ou `releases/latest` + `SHA256SUMS.txt` sem quota).
-  Todo download continua exigindo SHA-256. Nada de bucket.
-- **Ícones/fotos**: `raw.githubusercontent.com` nos repos dos apps (permitido em
-  `catalog::storage_host_allowed`, com teste; o web já carregava de lá).
+- **Catálogo**: RTDB, `/catalog.json`. ✓ deployado; hoje vazio.
+- **Instaladores**: assets do GitHub Release do próprio app. O `publish` grava
+  a URL absoluta em `release.base` com `--base-url` (e `--no-upload`), então o
+  launcher baixa direto de `github.com/<repo>/releases/download/...`.
+- **Ícones/fotos**: `raw.githubusercontent.com` do repo do app (host permitido
+  em `catalog::storage_host_allowed`, com teste).
+- **Storage**: **não é necessário**. O `firebase.json` não declara mais Storage,
+  então `firebase deploy` não tenta criar bucket. O upload para bucket continua
+  existindo como opção (`cargo xtask publish` sem `--base-url`), mas nenhum
+  fluxo do projeto depende dele.
 - **SQL**: Firebase só tem SQL via Data Connect/Cloud SQL em **trial de 3 meses** —
-  depois vira Blaze automático. Sem plano pago permanente, e não precisamos:
-  catálogo é JSON (RTDB), arquivos são blobs. SQL = custo + complexidade + risco
-  de cobrança surprise.
+  depois vira Blaze automático. Não precisamos: o catálogo é um documento e os
+  arquivos são blobs.
+- **Download público**: os repos dos apps precisam ser **públicos** (o
+  `bd-launcher` já é). Asset de repo privado exige token e o launcher não tem
+  como autenticar no GitHub.
 
 ## 3. GitHub: repositório próprio
 
-O `origin` agora é o repo próprio (`daviloureiro/bd-launcher`) e os workflows
-compartilhados vêm do fork próprio (`daviloureiro/craft-common-actions`). Falta:
+O `origin` é o repo próprio (`daviloureiro/bd-launcher`), **público** — os
+downloads dos GitHub Releases dependem disso. Os workflows compartilhados vêm do
+fork próprio (`daviloureiro/craft-common-actions`). Falta:
 
 1. (Opcional) criar a org `bd-tecnologia` e transferir o repo para ela
-   (Settings → Transfer ownership); aí trocar `daviloureiro/` por
-   `bd-tecnologia/` em `Cargo.toml`, `publish.yml`, `README.md`, `AGENTS.md`,
-   `packaging/` e nos `uses:` dos workflows.
-2. Registrar os secrets no repo (Settings → Secrets and variables → Actions):
-   `FIREBASE_TOKEN` (sai de `firebase login:ci`), `FIREBASE_SERVICE_ACCOUNT`
-   (JSON da conta de serviço, Project settings → Service accounts),
-   `APPLE_*`, `WINDOWS_*`, `AZURE_*` (quando houver certificados). Nunca
-   commitar esses valores. O segredo legado do RTDB que circulou no chat não
-   serve para nada aqui (o publish usa OAuth) — revogue no console
-   (Project settings → Service accounts → Database secrets).
+   (Settings → Transfer ownership); aí trocar `daviloureiro/` por `bd-tecnologia/`
+   em `Cargo.toml`, `publish.yml`, `README.md`, `AGENTS.md`, `packaging/`, nos
+   `uses:` dos workflows e em `catalog::GITHUB_URL` / `App::github` do launcher.
+   A org **não existe hoje**; por isso o código aponta para `daviloureiro`.
+2. Registrar o único secret que o publish precisa: `FIREBASE_SERVICE_ACCOUNT`
+   (JSON da conta de serviço — *Project settings → Service accounts*). O antigo
+   `FIREBASE_TOKEN`/`firebase login:ci` saiu do workflow: ele é interativo e não
+   funciona em CI; o token do banco agora vem do `google-github-actions/auth`.
 3. Repetir `FIREBASE_PROJECT`/`LAUNCHER_REPO` nas cópias de `publish.yml` dos repos
    de cada app, quando eles existirem — e trocar o prefixo `bd-tecnologia/` pelos
-   repos reais em `README.md` (tabela dos apps), `ATTRIBUTION.md`, `GITHUB_URL`
-   (`catalog.rs`) e nas fixtures que usam a org como exemplo.
+   repos reais em `README.md` (tabela dos apps), `ATTRIBUTION.md` e nas fixtures
+   que usam a org como exemplo.
 4. Domínio canônico: `bdtecnolog.ia.br` (resolvido). `WEBSITE_URL`, README e metainfo
    (`homepage`, `contact` → WhatsApp, developer id `br.ia.bdtecnolog`) unificados nele.
 
 ## 4. Release: reapertar o cinto
+
+**Os certificados são obrigatórios?** Não para testar; sim para distribuir em
+escala. Eles servem para provar que o instalador saiu da BD: sem o pin, o
+launcher aceita qualquer binário com uma assinatura válida (inclusive de outro
+desenvolvedor); com o pin, só aceita o seu publisher. Enquanto não houver
+certificado, os testes de assinatura ficam desligados e o launcher confia na
+validação genérica do sistema.
 
 Quando 1 e 3 estiverem prontos:
 

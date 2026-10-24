@@ -211,13 +211,16 @@ fn parse(args: &[&str]) -> Result<Options, String> {
     let base_url = match base_url {
         Some(url) => {
             let url = url.trim();
-            if !url.starts_with("https://")
-                || url.len() > 2000
-                || url.chars().any(|c| c.is_control() || c.is_whitespace())
-            {
+            if !url.starts_with("https://") || url.len() > 2000 || url.chars().any(|c| c.is_control() || c.is_whitespace()) {
                 return Err(format!("`{url}` is not an https address the launcher can download from"));
             }
-            Some(if url.ends_with('/') { url.to_string() } else { format!("{url}/") })
+            let url = if url.ends_with('/') { url.to_string() } else { format!("{url}/") };
+            // Fail here, not at install time: the launcher only downloads from hosts
+            // it trusts, so anything else would publish a release it then refuses.
+            if !bd_launcher_core::catalog::storage_host_allowed(&format!("{url}x")) {
+                return Err(format!("`{url}` is not a host the launcher downloads from"));
+            }
+            Some(url)
         }
         None => None,
     };
@@ -249,7 +252,25 @@ fn parse(args: &[&str]) -> Result<Options, String> {
             dry_run,
         });
     }
-    Ok(Options { app: None, version, dir, icon, notes, name, tagline, color, app_file, social, base_url, no_upload, launcher, project, bucket, token, dry_run })
+    Ok(Options {
+        app: None,
+        version,
+        dir,
+        icon,
+        notes,
+        name,
+        tagline,
+        color,
+        app_file,
+        social,
+        base_url,
+        no_upload,
+        launcher,
+        project,
+        bucket,
+        token,
+        dry_run,
+    })
 }
 
 /// BD's social accounts, as `Name=address,Name=address`.
@@ -468,7 +489,7 @@ fn read_catalog(options: &Options, id: &str, token: &str) -> Option<String> {
 fn write_catalog(options: &Options, path: &str, entry: &str) -> Result<(), String> {
     let Some(token) = options.token.as_deref() else {
         eprintln!(
-            "\nThe files are uploaded, but the catalog was not updated: no Realtime Database token.\n\
+            "\nThe catalog was not updated: no Realtime Database token.\n\
              Set BD_LAUNCHER_FIREBASE_TOKEN and run the command again,\n\
              or write this to {path} in the database:\n\n{entry}\n"
         );
@@ -671,8 +692,14 @@ mod tests {
     #[test]
     fn a_published_base_skips_the_upload() {
         let parsed = parse(&[
-            "--app", "meuapp", "--version", "1.2.0", "--dir", ".",
-            "--base-url", "https://github.com/daviloureiro/meuapp/releases/download/v1.2.0",
+            "--app",
+            "meuapp",
+            "--version",
+            "1.2.0",
+            "--dir",
+            ".",
+            "--base-url",
+            "https://github.com/daviloureiro/meuapp/releases/download/v1.2.0",
         ])
         .unwrap();
         assert!(parsed.no_upload);
@@ -681,11 +708,17 @@ mod tests {
 
     #[test]
     fn a_published_base_must_be_https() {
-        assert!(parse(&[
-            "--app", "meuapp", "--version", "1.2.0", "--dir", ".",
-            "--base-url", "http://example.com/files",
-        ])
-        .is_err());
+        assert!(parse(&["--app", "meuapp", "--version", "1.2.0", "--dir", ".", "--base-url", "http://example.com/files",]).is_err());
+    }
+
+    #[test]
+    fn a_published_base_must_be_a_host_the_launcher_trusts() {
+        // The launcher would drop a release from anywhere else: refuse it here instead.
+        assert!(parse(&["--app", "meuapp", "--version", "1.2.0", "--dir", ".", "--base-url", "https://evil.example/files",]).is_err());
+        assert!(
+            parse(&["--app", "meuapp", "--version", "1.2.0", "--dir", ".", "--base-url", "https://github.com/daviloureiro/meuapp/issues/1",])
+                .is_err()
+        );
     }
 
     #[test]

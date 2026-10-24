@@ -1,15 +1,14 @@
 # Publish an app to the BD catalog.
 #
-# Copy this file into the repository of the app you publish and adjust the three places marked
-# TODO. It runs when you cut a release: it builds the files, uploads them to the Firebase
-# storage bucket and writes the app's entry in the catalog.
+# Copy this file into the repository of the app you publish and adjust the two places marked
+# TODO. It runs when you cut a release: it attaches the built files to the GitHub release and
+# writes the app's entry in the catalog. No Storage bucket is involved: the files are served by
+# GitHub Releases, which is free for public repositories.
 #
 # The publishing tool lives in the launcher's repository, so the workflow checks it out beside
 # the app and runs it from there.
 #
-# Two secrets are needed in the repository's settings (Settings → Secrets and variables →
-# Actions):
-#   FIREBASE_TOKEN             the token from `firebase login:ci`
+# One secret is needed in the app's repository (Settings → Secrets and variables → Actions):
 #   FIREBASE_SERVICE_ACCOUNT   the service account's JSON (Project settings → Service accounts)
 
 name: publish
@@ -24,16 +23,18 @@ on:
         required: true
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 env:
   APP_ID: meuapp # TODO: the app's machine name
-  FIREBASE_PROJECT: bdesk-bdtecnologia
-  LAUNCHER_REPO: daviloureiro/bd-launcher
 
 jobs:
   publish:
+    # The launcher's own releases are published with `--launcher`; this template is for the
+    # apps. Skipping it here keeps a launcher release from trying to publish an app called
+    # "meuapp". A copy in an app's repository runs normally.
+    if: github.repository != 'daviloureiro/bd-launcher'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -42,49 +43,57 @@ jobs:
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: ${{ env.LAUNCHER_REPO }}
+          repository: daviloureiro/bd-launcher
           path: launcher
 
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 22
-
-      - name: Install the Firebase CLI
-        run: npm i -g firebase-tools
-
-      - name: Log in to Firebase
-        run: firebase login:ci --no-localhost
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-
       - name: Get a database token
         id: auth
         uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          token_format: access_token
 
       # TODO: build the files, and put them in a folder named after the version.
       - name: Build
         working-directory: app
-        run: echo "Build the app here; the files go to dist/" >> "$GITHUB_STEP_SUMMARY"
+        run: echo "Build the app here; the files go to dist/." >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish
-        working-directory: app
+      - name: Version
+        id: version
         env:
           INPUT_VERSION: ${{ inputs.version }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           if [ "$INPUT_VERSION" != "" ]; then VERSION="$INPUT_VERSION"; fi
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Attach the files to the release
+        working-directory: app
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            gh release upload "v$VERSION" "dist/$VERSION"/* --clobber
+          else
+            gh release create "v$VERSION" "dist/$VERSION"/* --title "v$VERSION" --generate-notes
+          fi
+
+      - name: Publish
+        working-directory: app
+        env:
+          BD_LAUNCHER_FIREBASE_TOKEN: ${{ steps.auth.outputs.access_token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
           cargo run --quiet --manifest-path launcher/Cargo.toml -p xtask -- publish \
             --app "$APP_ID" \
             --version "$VERSION" \
             --dir "dist/$VERSION" \
-            --icon "assets/icon.png" \
-            --project "$FIREBASE_PROJECT" \
+            --no-upload \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/v$VERSION/" \
+            --icon "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/assets/icon.png" \
             --notes "$(git tag -l --format='%(contents)' "v$VERSION" 2>/dev/null || true)"
-        env:
-          BD_LAUNCHER_FIREBASE_TOKEN: ${{ steps.auth.outputs.access_token }}
