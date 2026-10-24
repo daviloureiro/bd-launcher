@@ -57,11 +57,6 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           token_format: access_token
 
-      # TODO: build the files, and put them in a folder named after the version.
-      - name: Build
-        working-directory: app
-        run: echo "Build the app here; the files go to dist/." >> "$GITHUB_STEP_SUMMARY"
-
       - name: Version
         id: version
         env:
@@ -70,6 +65,11 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           if [ "$INPUT_VERSION" != "" ]; then VERSION="$INPUT_VERSION"; fi
           echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # TODO: build the files, and put them in dist/<version>/.
+      - name: Build
+        working-directory: app
+        run: echo "Build the app here; the files go to dist/${{ steps.version.outputs.value }}/" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Attach the files to the release
         working-directory: app
@@ -89,7 +89,7 @@ jobs:
           BD_LAUNCHER_FIREBASE_TOKEN: ${{ steps.auth.outputs.access_token }}
           VERSION: ${{ steps.version.outputs.value }}
         run: |
-          cargo run --quiet --manifest-path launcher/Cargo.toml -p xtask -- publish \
+          cargo run --quiet --manifest-path ../launcher/Cargo.toml -p xtask -- publish \
             --app "$APP_ID" \
             --version "$VERSION" \
             --dir "dist/$VERSION" \
