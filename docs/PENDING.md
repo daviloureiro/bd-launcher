@@ -26,21 +26,29 @@ confiar na identidade deles. Quando os certificados da BD chegarem:
 
 ## 2. Firebase: sem Storage, sem SQL pago (decidido)
 
+Dois projetos, sem confusão:
+
+- **`bdtecnologia`** — RTDB do launcher (`catalog.json`). Regras deployadas. ✓
+- **`bdtecnologia`** — site institucional (`bdtecnolog.ia.br`, Hosting `bdtecnolog-ia-br`).
+  Nada do launcher depende dele.
+
+Arquitetura do launcher, toda gratuita:
+
 O banco (RTDB) já tem as regras (`firebase deploy --only database` feito) e funciona
 no plano gratuito. Arquitetura final, sem Storage e sem SQL:
 
 - **RTDB**: 1 GB guardado + 10 GB/mês de download grátis. Regras já deployadas. ✓
-- **Storage**: 5 GB guardados + 1 GB/dia de download grátis no Spark — **sem pagar**.
-  O que travou foi só a criação do bucket (a API crua exige billing; o botão
-  **Get Started** no console cria dentro da cota gratuita). 1 clique seu, depois
-  eu rodo o deploy das regras daqui.
+- **Storage**: 5 GB + 1 GB/dia grátis no Spark. Opcional: só se um dia quiser o
+  bucket (console → Get Started, depois eu deployo as regras daqui). Nada no
+  código depende dele.
+- **Web (`bd-launcher-web`)**: o release gera o zip (`packaging/web/package.sh`),
+  mas não publica sozinho — destino a decidir (Firebase Hosting novo site no
+  projeto do launcher, GitHub Pages ou Cloudflare; ver `packaging/web/README.md`).
 - **Instaladores**: GitHub Releases de cada app + fallback nativo do launcher
   (`GitHubSource`: API, ou `releases/latest` + `SHA256SUMS.txt` sem quota).
   Todo download continua exigindo SHA-256. Nada de bucket.
 - **Ícones/fotos**: `raw.githubusercontent.com` nos repos dos apps (permitido em
   `catalog::storage_host_allowed`, com teste; o web já carregava de lá).
-- **Bucket**: opcional, só se um dia quiser (console → Get Started, depois
-  `firebase deploy --only storage`). Nada no código depende dele.
 - **SQL**: Firebase só tem SQL via Data Connect/Cloud SQL em **trial de 3 meses** —
   depois vira Blaze automático. Sem plano pago permanente, e não precisamos:
   catálogo é JSON (RTDB), arquivos são blobs. SQL = custo + complexidade + risco

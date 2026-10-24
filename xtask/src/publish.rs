@@ -1,11 +1,12 @@
 //! Publishing an app release to Firebase.
 //!
-//! One command does the whole job: it hashes the files, uploads them to the storage bucket and
+//! One command does the whole job: it hashes the files, records where they were published and
 //! writes the app's entry in the catalog, so the launcher sees the new version on its next
 //! check. Nothing has to be edited by hand.
 //!
-//! The uploads go through the Firebase CLI (which knows the credentials); the catalog is
-//! read and written through the Realtime Database's REST API with a token the caller provides.
+//! The files go either to the storage bucket (through the Firebase CLI) or to a GitHub release,
+//! whose download address is passed with `--base-url`; the catalog is read and written through
+//! the Realtime Database's REST API with a token the caller provides.
 //!
 //! The app's entry is **merged**, not replaced: the name, the colour, the icon and the page of
 //! an app that is already in the catalog stay as they are, and only its release changes. The
@@ -30,14 +31,15 @@ usage: cargo xtask publish --app <id> --version <x.y.z> --dir <folder> [options]
   --app <id>        the app's machine name (its download files' stem)
   --version <v>     the version being published, without a leading v
   --dir <folder>    the folder with the release files
-  --icon <file>     the app's icon (a PNG); uploaded to icons/<id>.png
+  --icon <file|url> the app's icon: a PNG uploaded to icons/<id>.png, or an https address
   --notes <text>    the release notes
   --name <text>     the app's name (only needed the first time it is published)
   --tagline <text>  the app's one-line description (only needed the first time)
   --color <hex>     the app's colour, as #1876ff (only needed the first time)
   --app-file <file> a JSON file with the app's metadata (the same fields as the catalog)
   --social <list>   BD's social accounts, as Name=address,Name=address
-  --no-upload       the files are already in the bucket; only the catalog is written
+  --base-url <url>  where the files were published (a GitHub release); implies --no-upload
+  --no-upload       the files are already published; only the catalog is written
   --launcher        publish BD Launcher's own release, not an app's
   --project <id>    the Firebase project (default: bdesk-bdtecnologia)
   --bucket <name>   the storage bucket (default: bdesk-bdtecnologia.firebasestorage.app)
@@ -52,8 +54,9 @@ The database's address is https://<project>.firebaseio.com. Set
 BD_LAUNCHER_FIREBASE_DATABASE_URL to point somewhere else (the emulator, a
 staging database).
 
-The files are uploaded to apps/<id>/<version>/ in the bucket, and the app's entry is
-written to the Realtime Database at catalog/apps/<id>.
+The files go to apps/<id>/<version>/ in the bucket unless --base-url says where they
+were published instead (a GitHub release, for a deployment that doesn't use Storage).
+The app's entry is written to the Realtime Database at catalog/apps/<id>.
 ";
 
 /// What the command was asked to do.
@@ -68,6 +71,7 @@ struct Options {
     color: Option<String>,
     app_file: Option<PathBuf>,
     social: Vec<(String, String)>,
+    base_url: Option<String>,
     no_upload: bool,
     launcher: bool,
     project: String,
@@ -93,7 +97,11 @@ pub fn run(args: &[&str]) -> Result<(), String> {
 
     println!("app:     {}", if options.launcher { "BD Launcher".to_string() } else { id.clone() });
     println!("version: {}", options.version);
-    println!("bucket:  {}", options.bucket);
+    if let Some(base) = &options.base_url {
+        println!("base:    {base}");
+    } else {
+        println!("bucket:  {}", options.bucket);
+    }
     println!("files:   {} in {}", files.len(), options.dir.display());
     for file in &files {
         println!("  {:<52} {:>10} bytes  {}", file.name, file.size, &file.sha256[..16]);
@@ -114,7 +122,9 @@ pub fn run(args: &[&str]) -> Result<(), String> {
         }
 
         // 2. The icon, in the bucket.
-        if let Some(icon) = &options.icon {
+        if let Some(icon) = &options.icon
+            && !is_web_address(icon)
+        {
             upload(&options, icon, &format!("icons/{id}.png"))?;
         }
     }
@@ -145,6 +155,7 @@ fn parse(args: &[&str]) -> Result<Options, String> {
     let mut color = None;
     let mut app_file = None;
     let mut social = Vec::new();
+    let mut base_url = None;
     let mut no_upload = false;
     let mut launcher = false;
     let mut project = DEFAULT_PROJECT.to_string();
@@ -167,6 +178,7 @@ fn parse(args: &[&str]) -> Result<Options, String> {
             "--color" => color = Some(value()?),
             "--app-file" => app_file = Some(PathBuf::from(value()?)),
             "--social" => social = parse_social(&value()?)?,
+            "--base-url" => base_url = Some(value()?),
             "--no-upload" => no_upload = true,
             "--launcher" => launcher = true,
             "--project" => project = value()?,
@@ -196,6 +208,22 @@ fn parse(args: &[&str]) -> Result<Options, String> {
         return Err(format!("`{version}` is not a usable version: use `1.2.0` (or `1.2.0-rc.1`) without a leading `v`"));
     }
     let dir = dir.ok_or_else(|| format!("`--dir` is needed\n\n{USAGE}"))?;
+    let base_url = match base_url {
+        Some(url) => {
+            let url = url.trim();
+            if !url.starts_with("https://")
+                || url.len() > 2000
+                || url.chars().any(|c| c.is_control() || c.is_whitespace())
+            {
+                return Err(format!("`{url}` is not an https address the launcher can download from"));
+            }
+            Some(if url.ends_with('/') { url.to_string() } else { format!("{url}/") })
+        }
+        None => None,
+    };
+    // A published base means the files are already elsewhere: uploading them to the bucket
+    // as well would leave the catalog pointing at one copy and the bucket holding another.
+    let no_upload = no_upload || base_url.is_some();
     if !launcher {
         let app = app.ok_or_else(|| format!("`--app` is needed\n\n{USAGE}"))?;
         if !app.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b)) {
@@ -212,6 +240,7 @@ fn parse(args: &[&str]) -> Result<Options, String> {
             color,
             app_file,
             social,
+            base_url,
             no_upload,
             launcher,
             project,
@@ -220,7 +249,7 @@ fn parse(args: &[&str]) -> Result<Options, String> {
             dry_run,
         });
     }
-    Ok(Options { app: None, version, dir, icon, notes, name, tagline, color, app_file, social, no_upload, launcher, project, bucket, token, dry_run })
+    Ok(Options { app: None, version, dir, icon, notes, name, tagline, color, app_file, social, base_url, no_upload, launcher, project, bucket, token, dry_run })
 }
 
 /// BD's social accounts, as `Name=address,Name=address`.
@@ -326,9 +355,13 @@ fn build_entry(existing: Option<&str>, options: &Options, files: &[File]) -> Str
     if let Some(color) = &options.color {
         app.insert("color".into(), Value::String(color.clone()));
     }
-    if options.icon.is_some() && !app.contains_key("icon") {
-        // The icon was uploaded to this address: the card has to know where to look for it.
-        app.insert("icon".into(), Value::String(format!("icons/{id}.png")));
+    if let Some(icon) = &options.icon {
+        if is_web_address(icon) {
+            app.insert("icon".into(), Value::String(icon.to_string_lossy().into_owned()));
+        } else if !app.contains_key("icon") {
+            // The icon was uploaded to this address: the card has to know where to look for it.
+            app.insert("icon".into(), Value::String(format!("icons/{id}.png")));
+        }
     }
     if let Some(file) = &options.app_file
         && let Ok(text) = std::fs::read_to_string(file)
@@ -349,15 +382,28 @@ fn release(options: &Options, files: &[File]) -> String {
 
 /// The release, as a value (so the app's entry can carry it).
 fn release_value(options: &Options, files: &[File]) -> Value {
-    let id = options.app.clone().unwrap_or_else(|| "bd-launcher".to_string());
     serde_json::json!({
         "version": options.version,
         "tag": format!("v{}", options.version),
         "published_at": now(),
         "notes": options.notes,
-        "base": format!("apps/{id}/{}/", options.version),
+        "base": release_base(options),
         "assets": files.iter().map(|f| serde_json::json!({"name": f.name, "size": f.size, "sha256": f.sha256})).collect::<Vec<_>>(),
     })
+}
+
+/// Where the release's files are: the published address, or the release's folder in the bucket.
+fn release_base(options: &Options) -> String {
+    if let Some(base) = &options.base_url {
+        return base.clone();
+    }
+    let id = options.app.clone().unwrap_or_else(|| "bd-launcher".to_string());
+    format!("apps/{id}/{}/", options.version)
+}
+
+/// Whether the `--icon` value is already an address instead of a file to upload.
+fn is_web_address(path: &Path) -> bool {
+    path.to_string_lossy().starts_with("https://")
 }
 
 /// Uploads one file to the bucket, with the Firebase CLI.
@@ -471,6 +517,7 @@ mod tests {
             color: None,
             app_file: None,
             social: Vec::new(),
+            base_url: None,
             no_upload: false,
             launcher: false,
             project: "p".into(),
@@ -609,5 +656,45 @@ mod tests {
         let text = build_entry(Some("{\"id\":\"meuapp\",\"icon\":\"icons/custom.png\"}"), &opts, &files);
         let value: Value = serde_json::from_str(&text).unwrap();
         assert_eq!(value["icon"], "icons/custom.png");
+    }
+
+    #[test]
+    fn a_published_base_replaces_the_bucket_path() {
+        let mut opts = options();
+        opts.base_url = Some("https://github.com/daviloureiro/meuapp/releases/download/v1.2.0/".into());
+        let files = vec![File { name: "meuapp-1.2.0-windows-x64.msi".into(), size: 7, sha256: "ab".repeat(32) }];
+        let text = build_entry(None, &opts, &files);
+        let value: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(value["release"]["base"], "https://github.com/daviloureiro/meuapp/releases/download/v1.2.0/");
+    }
+
+    #[test]
+    fn a_published_base_skips_the_upload() {
+        let parsed = parse(&[
+            "--app", "meuapp", "--version", "1.2.0", "--dir", ".",
+            "--base-url", "https://github.com/daviloureiro/meuapp/releases/download/v1.2.0",
+        ])
+        .unwrap();
+        assert!(parsed.no_upload);
+        assert_eq!(release_base(&parsed), "https://github.com/daviloureiro/meuapp/releases/download/v1.2.0/");
+    }
+
+    #[test]
+    fn a_published_base_must_be_https() {
+        assert!(parse(&[
+            "--app", "meuapp", "--version", "1.2.0", "--dir", ".",
+            "--base-url", "http://example.com/files",
+        ])
+        .is_err());
+    }
+
+    #[test]
+    fn an_icon_address_is_used_as_it_is() {
+        let mut opts = options();
+        opts.icon = Some(PathBuf::from("https://raw.githubusercontent.com/daviloureiro/meuapp/main/assets/icon.png"));
+        let files = vec![File { name: "meuapp-1.2.0-windows-x64.msi".into(), size: 7, sha256: "ab".repeat(32) }];
+        let text = build_entry(None, &opts, &files);
+        let value: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(value["icon"], "https://raw.githubusercontent.com/daviloureiro/meuapp/main/assets/icon.png");
     }
 }
