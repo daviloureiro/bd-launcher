@@ -60,9 +60,15 @@ fork próprio (`daviloureiro/craft-common-actions`). Falta:
    `uses:` dos workflows e em `catalog::GITHUB_URL` / `App::github` do launcher.
    A org **não existe hoje**; por isso o código aponta para `daviloureiro`.
 2. Registrar o único secret que o publish precisa: `FIREBASE_SERVICE_ACCOUNT`
-   (JSON da conta de serviço — *Project settings → Service accounts*). O antigo
-   `FIREBASE_TOKEN`/`firebase login:ci` saiu do workflow: ele é interativo e não
-   funciona em CI; o token do banco agora vem do `google-github-actions/auth`.
+   (JSON da conta de serviço — *Project settings → Service accounts → Generate
+   new private key*; minificar o JSON numa linha antes de colar). A conta
+   também precisa de duas permissões: **Editor** no projeto (é o que a deixa
+   escrever no banco ignorando as regras) e **Service Account Token Creator
+   nela própria** (é o que o `google-github-actions/auth` usa para cunhar o
+   token). Ajustar `SERVICE_ACCOUNT` no topo de `publish.yml` para o e-mail da
+   conta (`bdesk-bdtecnologia@appspot.gserviceaccount.com`, se for a padrão).
+   O antigo `FIREBASE_TOKEN`/`firebase login:ci` saiu do workflow: é interativo
+   e não funciona em CI.
 3. Repetir `FIREBASE_PROJECT`/`LAUNCHER_REPO` nas cópias de `publish.yml` dos repos
    de cada app, quando eles existirem — e trocar o prefixo `bd-tecnologia/` pelos
    repos reais em `README.md` (tabela dos apps), `ATTRIBUTION.md` e nas fixtures

@@ -10,6 +10,8 @@
 #
 # One secret is needed in the app's repository (Settings → Secrets and variables → Actions):
 #   FIREBASE_SERVICE_ACCOUNT   the service account's JSON (Project settings → Service accounts)
+# The account needs Editor on the project and Service Account Token Creator on itself, and its
+# address goes in SERVICE_ACCOUNT below.
 
 name: publish
 
@@ -28,6 +30,10 @@ permissions:
 
 env:
   APP_ID: meuapp # TODO: the app's machine name
+  # TODO: the address of the service account in FIREBASE_SERVICE_ACCOUNT. The auth action needs
+  # it to mint the access token, and the account needs "Service Account Token Creator" on
+  # itself. The default Firebase one is <project-id>@appspot.gserviceaccount.com.
+  SERVICE_ACCOUNT: bdesk-bdtecnologia@appspot.gserviceaccount.com
 
 jobs:
   publish:
@@ -55,6 +61,7 @@ jobs:
         uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
           token_format: access_token
 
       - name: Version
