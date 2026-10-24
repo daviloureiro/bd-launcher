@@ -87,6 +87,16 @@ validação genérica do sistema.
 
 Quando 1 e 3 estiverem prontos:
 
+- **O launcher não se atualiza sozinho até alguém publicar a entrada dele no
+  catálogo.** O `publish.yml` é o template dos apps e não corre no repo do
+  launcher; depois de cada release do launcher, rodar uma vez (com o token do
+  banco no ambiente):
+  ```sh
+  cargo xtask publish --launcher --version 1.6.0 --dir dist/1.6.0 \
+    --base-url https://github.com/daviloureiro/bd-launcher/releases/download/v1.6.0
+  ```
+  (A entrada vai para `catalog/launcher`, que é de onde `Catalog::launcher_release`
+  a lê — não para `catalog/apps`.)
 - Reativar os testes de assinatura nos CIs (Windows/macOS) com builds assinados.
 - Auditoria WCAG + Web Vitals do web (medido em 2026-10-23, build trunk 0.21.14 idêntico
   ao CI, via Lighthouse local): acessibilidade 100, boas práticas 100, SEO 100
